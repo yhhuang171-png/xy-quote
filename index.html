@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>XY 报价助手</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a workbench — sticky model bar, price summary first, then editable cost sections like the factory's 报价表 */
+:root{
+  --bg:#f3f5f7; --panel:#ffffff; --ink:#18212b; --muted:#5d6b78; --line:#d9dfe5;
+  --steel:#2b5d86; --steel-soft:#e3edf5; --brass:#9a6a12; --brass-soft:#fbf1dc;
+  --good:#1f7a4d; --warn:#a14a12; --warn-soft:#fdeee3;
+  --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12171d; --panel:#1a2129; --ink:#e6ebf0; --muted:#97a5b2; --line:#2c3640;
+  --steel:#7fb2db; --steel-soft:#1d2d3b; --brass:#e1b25a; --brass-soft:#2e2615;
+  --good:#5cc490; --warn:#f0a06a; --warn-soft:#352419; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12171d; --panel:#1a2129; --ink:#e6ebf0; --muted:#97a5b2; --line:#2c3640;
+  --steel:#7fb2db; --steel-soft:#1d2d3b; --brass:#e1b25a; --brass-soft:#2e2615;
+  --good:#5cc490; --warn:#f0a06a; --warn-soft:#352419; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:16px;padding-block:0 48px}
+.num,td.n,input.n{font-family:var(--mono);font-variant-numeric:tabular-nums}
+header.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line);margin-inline:-16px;padding:10px 16px}
+.bar-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.brand{font-weight:900;letter-spacing:.02em;margin-right:6px}
+.brand span{color:var(--steel)}
+nav.tabs{display:flex;gap:4px;margin-left:auto}
+nav.tabs button{background:none;border:0;padding:6px 10px;border-radius:6px;color:var(--muted);font:inherit;cursor:pointer}
+nav.tabs button[aria-pressed="true"]{background:var(--steel-soft);color:var(--steel);font-weight:700}
+select,input,textarea{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 8px;min-width:0}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--steel);outline-offset:1px}
+button.btn{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:6px;padding:6px 12px;cursor:pointer}
+button.btn.primary{background:var(--steel);border-color:var(--steel);color:var(--panel);font-weight:700}
+button.btn.danger{color:var(--warn)}
+button.btn:disabled{opacity:.45;cursor:default}
+.pill{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;background:var(--warn-soft);color:var(--warn)}
+.pill.ok{background:var(--steel-soft);color:var(--steel)}
+#modelSel{max-width:100%;flex:1 1 220px}
+.notice{margin-top:16px;padding:12px 14px;border-radius:8px;background:var(--warn-soft);color:var(--warn)}
+.summary{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;margin-top:16px}
+@media (max-width:760px){.summary{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+.price-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px}
+.price-big{font-family:var(--mono);font-size:40px;font-weight:600;line-height:1.1;color:var(--brass)}
+.label{font-size:12px;letter-spacing:.06em;color:var(--muted)}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-top:14px}
+.kv div b{display:block;font-family:var(--mono);font-size:18px;font-weight:600}
+.steps{display:flex;flex-direction:column;margin-top:14px;border-top:1px solid var(--line)}
+.step{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px 12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.step b{font-family:var(--mono);font-weight:600;font-size:16px}
+.step.sub{color:var(--muted)}
+.step.total b{color:var(--brass);font-size:22px}
+.mrg{display:inline-flex;align-items:center;gap:4px;margin-left:8px;color:var(--muted);font-size:13px}
+.mrg input{width:72px;padding:3px 6px}
+.margin-note{margin-top:14px;padding:10px 12px;border-radius:8px;background:var(--brass-soft);font-size:14px}
+.bars{display:flex;flex-direction:column;gap:7px}
+.bars .row{display:grid;grid-template-columns:72px minmax(0,1fr) 70px;gap:8px;align-items:center;font-size:13px}
+.bars .track{height:10px;background:var(--steel-soft);border-radius:3px;overflow:hidden}
+.bars .fill{height:100%;background:var(--steel)}
+.bars .row .n{text-align:right;font-family:var(--mono)}
+.quick{margin-top:16px}
+.quick h2,.sec summary{font-size:16px;font-weight:700;margin:0}
+.quick-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:10px}
+.quick-grid label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.quick-grid .pair{display:flex;gap:6px;align-items:center}
+.quick-grid .pair select{flex:1}
+details.sec{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-top:12px}
+details.sec summary{padding:12px 16px;cursor:pointer;display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;list-style:none}
+details.sec summary::-webkit-details-marker{display:none}
+details.sec summary::before{content:"▸";color:var(--muted);margin-right:4px}
+details.sec[open] summary::before{content:"▾"}
+details.sec summary .t{margin-right:auto}
+details.sec .body{padding:0 16px 14px}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:4px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:3px 4px;border-bottom:1px solid var(--line);vertical-align:middle}
+td input{width:100%;padding:4px 6px}
+td input.n{text-align:right}
+td.n{text-align:right;white-space:nowrap}
+td select{padding:4px}
+.w-xs{width:56px}.w-s{width:72px}.w-m{width:110px}.w-l{min-width:140px}
+.x{background:none;border:0;color:var(--muted);cursor:pointer;font-size:16px;padding:2px 6px}
+.addrow{margin-top:8px}
+.hint{font-size:12px;color:var(--muted);margin-top:6px}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.form-grid label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.copybox{white-space:pre-wrap;font-family:var(--mono);font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;margin-top:8px}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.inline-form{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-top:10px;padding:12px;border:1px dashed var(--line);border-radius:8px}
+.inline-form label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+h1.page{font-size:20px;margin:20px 0 4px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:14px;z-index:20}
+.empty{margin-top:24px;text-align:center;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.bars .fill{transition:width .25s}}
+#login{max-width:360px;margin:12vh auto 0;display:flex;flex-direction:column;gap:12px}
+#login label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+#login .err{color:var(--warn);font-size:13px;min-height:1.2em}
+.who{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="bar">
+    <div class="bar-row">
+      <div class="brand">XY <span>报价助手</span></div>
+      <nav class="tabs" aria-label="页面">
+        <button type="button" data-tab="quote" aria-pressed="true">报价</button>
+        <button type="button" data-tab="prices" aria-pressed="false">价格表</button>
+        <button type="button" data-tab="settings" aria-pressed="false">参数</button>
+      </nav>
+      <span class="who" id="who"></span>
+      <button class="btn" type="button" id="logoutBtn" hidden>退出</button>
+    </div>
+  </header>
+
+  <div id="dbNotice" class="notice" hidden></div>
+
+  <form id="login" class="card" hidden>
+    <div class="brand" style="font-size:20px">XY <span>报价助手</span></div>
+    <label>邮箱<input id="email" type="email" autocomplete="username" required></label>
+    <label>密码<input id="password" type="password" autocomplete="current-password" required></label>
+    <button class="btn primary" type="submit" id="loginBtn">登录</button>
+    <div class="err" id="loginErr"></div>
+  </form>
+  <div id="app" hidden>
+
+  <section id="tab-quote">
+    <div class="bar-row" style="margin-top:14px">
+      <select id="modelSel" aria-label="选择款式"></select>
+      <span id="dirty" class="pill" hidden>有未保存的修改</span>
+      <button class="btn primary" id="saveBtn" type="button" disabled>保存</button>
+      <button class="btn" id="cloneBtn" type="button">另存为新款</button>
+      <button class="btn" id="resetBtn" type="button" disabled>放弃修改</button>
+    </div>
+    <div id="cloneForm" class="inline-form" hidden>
+      <label>新型号<input id="newCode" class="w-m"></label>
+      <label>名称<input id="newName" class="w-m"></label>
+      <label>版本 / 表面<input id="newVariant" class="w-m"></label>
+      <button class="btn primary" id="cloneOk" type="button">保存为新款</button>
+      <button class="btn" id="cloneCancel" type="button">取消</button>
+    </div>
+
+    <div id="quoteEmpty" class="empty" hidden>款式库里还没有产品。连接成功后，价格表和款式会出现在这里。</div>
+
+    <div id="quoteBody" hidden>
+      <div class="summary">
+        <div class="card">
+          <div class="label">① 产品成本 · 人民币 · 每件（含管销、不良，不含运费和利润）</div>
+          <div class="price-head"><div class="price-big" id="sumCost">—</div></div>
+          <div class="steps">
+            <div class="step"><span>② FOB 运费（拖车、报关）</span><b id="kFreight">—</b></div>
+            <div class="step sub"><span>成本合计（① + ②）</span><b id="kCost">—</b></div>
+            <div class="step"><span>③ 利润 <label class="mrg">毛利率 <input id="profitQuick" class="n" type="number" step="any" aria-label="毛利率"> %</label></span><b id="kProfit">—</b></div>
+            <div class="step sub"><span>人民币报价</span><b id="kPrice">—</b></div>
+            <div class="step total"><span id="kUsdLabel">④ 美金报价</span><b id="kUsd">—</b></div>
+          </div>
+          <div class="kv">
+            <div><span class="label">每箱件数 / 每箱材积</span><b id="kPack">—</b></div>
+            <div><span class="label">40HQ 约装</span><b id="kLoad">—</b></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="label" style="margin-bottom:10px">① 产品成本构成（元/件）</div>
+          <div class="bars" id="bars"></div>
+        </div>
+      </div>
+
+      <div class="card quick">
+        <h2>快速改款</h2>
+        <div class="quick-grid">
+          <label>把这种材料
+            <div class="pair"><select id="swapMatFrom"></select>→<select id="swapMatTo"></select><button class="btn" id="swapMatBtn" type="button">替换</button></div>
+          </label>
+          <label>把这种表面处理
+            <div class="pair"><select id="swapFinFrom"></select>→<select id="swapFinTo"></select><button class="btn" id="swapFinBtn" type="button">替换</button></div>
+          </label>
+          <label>所有管材长度一起调整（%）
+            <div class="pair"><input id="scalePct" class="n" type="number" step="any" value="0"><button class="btn" id="scaleBtn" type="button">应用</button></div>
+          </label>
+        </div>
+        <div class="hint">改完先看上面的报价。确认是新款就点「另存为新款」，不会覆盖原来的款式。上面的毛利率改了只影响这次计算，默认值在「参数」里改。</div>
+      </div>
+
+      <details class="sec" open>
+        <summary><span class="t">基本信息与包装</span><span class="num" id="sInfo"></span></summary>
+        <div class="body">
+          <div class="form-grid">
+            <label>型号<input data-f="code"></label>
+            <label>名称<input data-f="name"></label>
+            <label>英文名（给客户）<input data-f="nameEn"></label>
+            <label>版本 / 表面<input data-f="variant"></label>
+            <label>组立尺寸 mm<input data-f="size"></label>
+            <label>每箱件数（每款不同）<input data-f="pcsPerCtn" class="n" type="number" step="1"></label>
+            <label>出货港<select data-f="port"><option value="YT">盐田 YT</option><option value="HK">香港 HK</option></select></label>
+            <label>备注<input data-f="notes"></label>
+          </div>
+          <div class="label" style="margin-top:14px">纸箱</div>
+          <div class="form-grid" style="margin-top:6px">
+            <label>箱型<select data-c="type"><option value="4">卡通箱</option><option value="1">天地盒</option><option value="2">侧封箱</option><option value="3">中封箱</option></select></label>
+            <label>长 mm<input data-c="L" class="n" type="number" step="any"></label>
+            <label>宽 mm<input data-c="W" class="n" type="number" step="any"></label>
+            <label>高 mm<input data-c="H" class="n" type="number" step="any"></label>
+            <label>纸质<input data-c="grade"></label>
+            <label>单价 元/千平方英寸<input data-c="price" class="n" type="number" step="any"></label>
+          </div>
+          <div class="hint" id="cartonHint"></div>
+        </div>
+      </details>
+
+      <details class="sec" open>
+        <summary><span class="t">黑身材料（管材、板材）</span><span class="num" id="sMetal"></span></summary>
+        <div class="body">
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>类别</th><th>规格1</th><th>规格2</th><th>厚度/棒径</th><th>长度mm</th><th>数量</th><th>材料</th><th>表面处理</th><th>重量kg</th><th>材料费</th><th>表面费</th><th>备注</th><th></th></tr></thead>
+            <tbody id="tMetal"></tbody>
+          </table></div>
+          <button class="btn addrow" type="button" data-add="metal">＋ 加一行</button>
+          <div class="hint">圆管：规格2 填外径，厚度填壁厚。方管：规格1 × 规格2 填两边。圆棒：只填直径（厚度栏）。板材：规格2 填宽，厚度填板厚。重量按原报价表同样的公式计算。</div>
+        </div>
+      </details>
+
+      <details class="sec">
+        <summary><span class="t">人工加工</span><span class="num" id="sLabor"></span></summary>
+        <div class="body">
+          <div class="tbl-wrap"><table><thead><tr><th>工序</th><th>单价</th><th>数量</th><th>金额</th><th></th></tr></thead><tbody id="tLabor"></tbody></table></div>
+          <button class="btn addrow" type="button" data-add="labor">＋ 加一行</button>
+          <div class="hint">原表里工序没有名字，暂时写成「工序1、2…」，可以直接改成真实工序名。</div>
+        </div>
+      </details>
+
+      <details class="sec">
+        <summary><span class="t">五金</span><span class="num" id="sHw"></span></summary>
+        <div class="body">
+          <div class="tbl-wrap"><table><thead><tr><th>名称</th><th>规格</th><th>数量</th><th>单价</th><th>金额</th><th></th></tr></thead><tbody id="tHw"></tbody></table></div>
+          <button class="btn addrow" type="button" data-add="hardware">＋ 加一行</button>
+        </div>
+      </details>
+
+      <details class="sec">
+        <summary><span class="t">包材</span><span class="num" id="sPack"></span></summary>
+        <div class="body">
+          <div class="tbl-wrap"><table><thead><tr><th>名称</th><th>规格</th><th>金额（元/件）</th><th></th></tr></thead><tbody id="tPack"></tbody></table></div>
+          <button class="btn addrow" type="button" data-add="packaging">＋ 加一行</button>
+          <div class="hint" id="packHint"></div>
+        </div>
+      </details>
+
+      <details class="sec">
+        <summary><span class="t">外配件（坐垫、面料、海绵、塑胶件）</span><span class="num" id="sOuter"></span></summary>
+        <div class="body">
+          <div class="tbl-wrap"><table><thead><tr><th>名称</th><th>数量</th><th>单价</th><th>金额</th><th></th></tr></thead><tbody id="tOuter"></tbody></table></div>
+          <button class="btn addrow" type="button" data-add="outer">＋ 加一行</button>
+          <div class="hint" id="outerHint"></div>
+        </div>
+      </details>
+
+      <details class="sec" open>
+        <summary><span class="t">给客户的报价文字</span></summary>
+        <div class="body">
+          <div class="copybox" id="custText"></div>
+          <div class="actions"><button class="btn" id="copyBtn" type="button">复制</button></div>
+        </div>
+      </details>
+
+      <div class="actions" style="margin-top:16px"><button class="btn danger" id="delBtn" type="button">删除这个款式</button></div>
+      <div id="delForm" class="inline-form" hidden>
+        <span id="delMsg"></span>
+        <button class="btn danger" id="delOk" type="button">确定删除</button>
+        <button class="btn" id="delCancel" type="button">取消</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-prices" hidden>
+    <h1 class="page">原材料价格表</h1>
+    <div class="hint">这里的价格改一次，所有用到这个材料的款式都会按新价格重新计算。</div>
+    <div class="card" style="margin-top:12px">
+      <div class="label">管材 / 板材（元/公斤）</div>
+      <div class="tbl-wrap"><table><thead><tr><th>名称</th><th>单价 元/kg</th><th>备注</th><th>更新日期</th><th>用到的款式</th><th></th></tr></thead><tbody id="tMats"></tbody></table></div>
+      <button class="btn addrow" type="button" id="addMat">＋ 新材料</button>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="label">表面处理</div>
+      <div class="tbl-wrap"><table><thead><tr><th>名称</th><th>计价方式</th><th>单价</th><th>备注</th><th>用到的款式</th><th></th></tr></thead><tbody id="tFins"></tbody></table></div>
+      <button class="btn addrow" type="button" id="addFin">＋ 新表面处理</button>
+    </div>
+    <div class="actions"><button class="btn primary" id="savePrices" type="button" disabled>保存价格表</button><span id="pricesDirty" class="pill" hidden>有未保存的修改</span></div>
+  </section>
+
+  <section id="tab-settings" hidden>
+    <h1 class="page">核算参数</h1>
+    <div class="hint">管销、不良、损耗、预涨沿用原来报价表的设定，所有款式共用。</div>
+    <div class="card" style="margin-top:12px">
+      <div class="form-grid" id="setForm">
+        <label>美元汇率（按银行当天汇率改）<input data-s="fx" class="n" type="number" step="any"></label>
+        <label>默认毛利率 %<input data-s="margin" data-pct="1" class="n" type="number" step="any"></label>
+        <label>管销 %<input data-s="mgmt" data-pct="1" class="n" type="number" step="any"></label>
+        <label>不良 %<input data-s="defect" data-pct="1" class="n" type="number" step="any"></label>
+        <label>外配件损耗 %<input data-s="outerLoss" data-pct="1" class="n" type="number" step="any"></label>
+        <label>包材预涨 %<input data-s="packRise" data-pct="1" class="n" type="number" step="any"></label>
+        <label>盐田运费 美金/立方英尺<input data-s="freightYT" class="n" type="number" step="any"></label>
+        <label>香港运费 美金/立方英尺<input data-s="freightHK" class="n" type="number" step="any"></label>
+        <label>40HQ 可装体积 立方英尺<input data-s="containerCuft" class="n" type="number" step="any"></label>
+        <label>报价有效期（天）<input data-s="validDays" class="n" type="number" step="1"></label>
+      </div>
+      <div class="actions"><button class="btn primary" id="saveSettings" type="button" disabled>保存参数</button><span id="setDirty" class="pill" hidden>有未保存的修改</span></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="label">计算方法</div>
+      <ol style="margin:8px 0 0;padding-left:20px;font-size:14px">
+        <li>小计 = 黑身材料 + 人工 + 表面处理 + 五金 + 包材（含预涨）+ 纸箱分摊</li>
+        <li>外配件 = 外配件合计 × (1 + 外配件损耗)</li>
+        <li>不良 = (黑身材料 + 人工 + 电镀/抛光) × 不良率</li>
+        <li>① 产品成本 = 小计 × (1 + 管销) + 外配件 + 不良</li>
+        <li>② FOB 运费 = 每箱材积 × 运费单价 × 汇率 ÷ 每箱件数</li>
+        <li>③ 人民币报价 = (① + ②) ÷ (1 − 毛利率)；利润 = 报价 − (① + ②)</li>
+        <li>④ 美金报价 = 人民币报价 ÷ 汇率</li>
+      </ol>
+    </div>
+  </section>
+  </div>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+const TYPES={1:'圆管',2:'方管',3:'圆棒',4:'方棒',5:'热板',6:'冷板'};
+function n(v){v=parseFloat(v);return isFinite(v)?v:0}
+function kgPerM(l){const t=+l.t,a=n(l.a),b=n(l.b),th=n(l.th);
+ if(t===1)return (b-th)*th*0.02466; if(t===2)return ((a+b)-th)*th*0.01574;
+ if(t===3)return th*th*0.00618; if(t>=4&&t<=6)return b*th*0.00787; return 0}
+function weight(l){return kgPerM(l)*n(l.len)/1000*n(l.qty)}
+function area(l){const t=+l.t,a=n(l.a),b=n(l.b),th=n(l.th),L=n(l.len),q=n(l.qty);
+ if(t===1)return L*b*3.14*q/1e6; if(t===2)return L*(a+b)*2*q/1e6;
+ if(t===6)return (L*(b+th)*2*q+b*th*2)/1e6; if(t===3)return L*th*3.14*q/1e6; return 0}
+function cartonCost(c){const i=25.4,L=n(c.L)/i,W=n(c.W)/i,H=n(c.H)/i,K=n(c.price),t=+c.type;
+ if(t===1)return (L+H*2+1)*(W+H*2+1)*K/1000*2;
+ if(t===3)return (L+H*2+1)*(W*2+H*2+1)*K/1000;
+ if(t===2)return (L+H*2+1)*(W*2+H*3+1)*K/1000;
+ if(t===4)return (L+W+2)*(W+H+1)*2*K/1000; return 0}
+function cuft(c){return n(c.L)*n(c.W)*n(c.H)/Math.pow(25.4,3)/1728}
+function compute(m,mats,fins,s){
+ const r={metal:0,areaFin:0,kgFin:0,labor:0,hw:0,pack:0,carton:0,outer:0,weight:0,lines:[]};
+ for(const l of m.metal||[]){const w=weight(l),mp=mats[l.mat]?n(mats[l.mat].price):0,c=w*mp;
+  let fc=0,ar=0;const f=fins[l.fin];
+  if(f){if(f.basis==='kg'){fc=w*n(f.price);r.kgFin+=fc}else{ar=area(l);fc=ar*n(f.price);r.areaFin+=fc}}
+  r.metal+=c;r.weight+=w;r.lines.push({w,c,ar,fc})}
+ for(const l of m.labor||[])r.labor+=n(l.rate)*n(l.qty);
+ for(const l of m.hardware||[])r.hw+=n(l.qty)*n(l.price);
+ let p=0;for(const l of m.packaging||[])p+=n(l.amount);r.packRaw=p;r.pack=p*(1+n(s.packRise));
+ const pcs=Math.max(1,n(m.pcsPerCtn)||1),c=m.carton||{};r.pcs=pcs;
+ r.cartonPerCtn=cartonCost(c);r.carton=r.cartonPerCtn/pcs;r.cuft=cuft(c);
+ r.subtotal=r.metal+r.labor+r.kgFin+r.areaFin+r.hw+r.pack+r.carton;
+ let o=0;for(const l of m.outer||[])o+=n(l.qty)*n(l.price);r.outerRaw=o;r.outer=o*(1+n(s.outerLoss));
+ r.mgmtAmt=r.subtotal*n(s.mgmt);
+ r.defect=(r.metal+r.labor+r.areaFin)*n(s.defect);
+ r.productCost=r.subtotal+r.mgmtAmt+r.outer+r.defect;
+ const rate=(m.port||s.port)==='HK'?n(s.freightHK):n(s.freightYT);
+ r.freight=r.cuft*rate*n(s.fx)/pcs;
+ r.cost=r.productCost+r.freight;
+ r.margin=Math.min(n(s.margin),0.95);
+ r.price=r.cost/(1-r.margin);
+ r.profitAmt=r.price-r.cost;
+ r.usd=n(s.fx)?r.price/n(s.fx):0;
+ r.loadPcs=r.cuft>0?Math.floor(n(s.containerCuft)/r.cuft)*pcs:0;
+ return r}
+
+/* ---------- state ---------- */
+const S={db:null,mats:{},fins:{},models:{},settings:null,cur:null,work:null,dirty:false,
+  matsWork:null,finsWork:null,pricesDirty:false,setWork:null,setDirty:false,profitOverride:null,canWrite:true};
+const $=id=>document.getElementById(id);
+const fmt=(v,d=2)=>(isFinite(v)?v:0).toLocaleString('zh-CN',{minimumFractionDigits:d,maximumFractionDigits:d});
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const clone=o=>JSON.parse(JSON.stringify(o));
+const sortByOrder=obj=>Object.entries(obj).sort((a,b)=>(n(a[1].order)||999)-(n(b[1].order)||999)||String(a[1].name).localeCompare(b[1].name,'zh'));
+function toast(msg){const t=$('toast');t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2200)}
+function effSettings(){const s=Object.assign({},S.settings||{});if(S.profitOverride!==null)s.margin=S.profitOverride;return s}
+
+/* ---------- tabs ---------- */
+document.querySelectorAll('nav.tabs button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('nav.tabs button').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));
+  ['quote','prices','settings'].forEach(k=>$('tab-'+k).hidden=k!==b.dataset.tab);
+}));
+
+/* ---------- model selection ---------- */
+function modelLabel(m){return [m.code,m.name,m.variant].filter(Boolean).join(' · ')}
+function renderModelSel(){
+  const sel=$('modelSel');const ids=Object.keys(S.models).sort((a,b)=>modelLabel(S.models[a]).localeCompare(modelLabel(S.models[b]),'zh'));
+  sel.innerHTML=ids.map(id=>`<option value="${esc(id)}">${esc(modelLabel(S.models[id]))}</option>`).join('');
+  if(S.cur&&S.models[S.cur])sel.value=S.cur;
+  $('quoteEmpty').hidden=ids.length>0; $('quoteBody').hidden=ids.length===0||!S.work;
+}
+function loadModel(id){S.cur=id;S.work=clone(S.models[id]);setDirty(false);S.profitOverride=null;renderAll()}
+$('modelSel').addEventListener('change',e=>{
+  if(S.dirty){toast('当前款式有未保存的修改，已放弃');}
+  loadModel(e.target.value)});
+function setDirty(v){S.dirty=v;$('dirty').hidden=!v;$('saveBtn').disabled=!v||!S.canWrite;$('resetBtn').disabled=!v}
+
+/* ---------- render quote ---------- */
+function opts(obj,sel,allowNone){return (allowNone?`<option value="">（无）</option>`:'')+sortByOrder(obj).map(([id,o])=>`<option value="${esc(id)}"${id===sel?' selected':''}>${esc(o.name)}</option>`).join('')}
+function renderTables(){
+  const w=S.work;
+  $('tMetal').innerHTML=(w.metal||[]).map((l,i)=>`<tr>
+    <td><select data-k="metal" data-i="${i}" data-p="t" class="w-s">${Object.entries(TYPES).map(([k,v])=>`<option value="${k}"${+l.t===+k?' selected':''}>${v}</option>`).join('')}</select></td>
+    <td><input class="n w-xs" type="number" step="any" data-k="metal" data-i="${i}" data-p="a" value="${esc(l.a??'')}"></td>
+    <td><input class="n w-xs" type="number" step="any" data-k="metal" data-i="${i}" data-p="b" value="${esc(l.b??'')}"></td>
+    <td><input class="n w-xs" type="number" step="any" data-k="metal" data-i="${i}" data-p="th" value="${esc(l.th??'')}"></td>
+    <td><input class="n w-s" type="number" step="any" data-k="metal" data-i="${i}" data-p="len" value="${esc(l.len??'')}"></td>
+    <td><input class="n w-xs" type="number" step="any" data-k="metal" data-i="${i}" data-p="qty" value="${esc(l.qty??'')}"></td>
+    <td><select data-k="metal" data-i="${i}" data-p="mat" class="w-l">${opts(S.mats,l.mat,true)}</select></td>
+    <td><select data-k="metal" data-i="${i}" data-p="fin" class="w-m">${opts(S.fins,l.fin,true)}</select></td>
+    <td class="n" id="mw${i}"></td><td class="n" id="mc${i}"></td><td class="n" id="mf${i}"></td>
+    <td><input class="w-m" data-k="metal" data-i="${i}" data-p="note" value="${esc(l.note??'')}"></td>
+    <td><button class="x" type="button" data-del="metal" data-i="${i}" aria-label="删除这一行">×</button></td></tr>`).join('');
+  $('tLabor').innerHTML=(w.labor||[]).map((l,i)=>`<tr>
+    <td><input class="w-l" data-k="labor" data-i="${i}" data-p="name" value="${esc(l.name)}"></td>
+    <td><input class="n w-s" type="number" step="any" data-k="labor" data-i="${i}" data-p="rate" value="${esc(l.rate)}"></td>
+    <td><input class="n w-s" type="number" step="any" data-k="labor" data-i="${i}" data-p="qty" value="${esc(l.qty)}"></td>
+    <td class="n" id="la${i}"></td><td><button class="x" type="button" data-del="labor" data-i="${i}" aria-label="删除这一行">×</button></td></tr>`).join('');
+  $('tHw').innerHTML=(w.hardware||[]).map((l,i)=>`<tr>
+    <td><input class="w-l" data-k="hardware" data-i="${i}" data-p="name" value="${esc(l.name)}"></td>
+    <td><input class="w-m" data-k="hardware" data-i="${i}" data-p="spec" value="${esc(l.spec)}"></td>
+    <td><input class="n w-xs" type="number" step="any" data-k="hardware" data-i="${i}" data-p="qty" value="${esc(l.qty)}"></td>
+    <td><input class="n w-s" type="number" step="any" data-k="hardware" data-i="${i}" data-p="price" value="${esc(l.price)}"></td>
+    <td class="n" id="hw${i}"></td><td><button class="x" type="button" data-del="hardware" data-i="${i}" aria-label="删除这一行">×</button></td></tr>`).join('');
+  $('tPack').innerHTML=(w.packaging||[]).map((l,i)=>`<tr>
+    <td><input class="w-m" data-k="packaging" data-i="${i}" data-p="name" value="${esc(l.name)}"></td>
+    <td><input class="w-l" data-k="packaging" data-i="${i}" data-p="spec" value="${esc(l.spec)}"></td>
+    <td><input class="n w-s" type="number" step="any" data-k="packaging" data-i="${i}" data-p="amount" value="${esc(l.amount)}"></td>
+    <td><button class="x" type="button" data-del="packaging" data-i="${i}" aria-label="删除这一行">×</button></td></tr>`).join('');
+  $('tOuter').innerHTML=(w.outer||[]).map((l,i)=>`<tr>
+    <td><input class="w-l" data-k="outer" data-i="${i}" data-p="name" value="${esc(l.name)}"></td>
+    <td><input class="n w-s" type="number" step="any" data-k="outer" data-i="${i}" data-p="qty" value="${esc(l.qty)}"></td>
+    <td><input class="n w-s" type="number" step="any" data-k="outer" data-i="${i}" data-p="price" value="${esc(l.price)}"></td>
+    <td class="n" id="ou${i}"></td><td><button class="x" type="button" data-del="outer" data-i="${i}" aria-label="删除这一行">×</button></td></tr>`).join('');
+  document.querySelectorAll('[data-f]').forEach(el=>el.value=w[el.dataset.f]??'');
+  document.querySelectorAll('[data-c]').forEach(el=>el.value=(w.carton||{})[el.dataset.c]??'');
+}
+function renderSwapSelects(){
+  const used=new Set((S.work?.metal||[]).map(l=>l.mat)),usedF=new Set((S.work?.metal||[]).map(l=>l.fin).filter(Boolean));
+  const only=(obj,set)=>Object.fromEntries(Object.entries(obj).filter(([k])=>set.has(k)));
+  $('swapMatFrom').innerHTML=opts(only(S.mats,used),null);$('swapMatTo').innerHTML=opts(S.mats,null);
+  $('swapFinFrom').innerHTML=opts(only(S.fins,usedF),null);$('swapFinTo').innerHTML=opts(S.fins,null,true);
+}
+function recalc(){
+  if(!S.work||!S.settings)return;
+  const s=effSettings(),r=compute(S.work,S.mats,S.fins,s),w=S.work;
+  r.lines.forEach((x,i)=>{const a=$('mw'+i);if(a){a.textContent=fmt(x.w,3);$('mc'+i).textContent=fmt(x.c);$('mf'+i).textContent=x.fc?fmt(x.fc):''}});
+  (w.labor||[]).forEach((l,i)=>{const e=$('la'+i);if(e)e.textContent=fmt(n(l.rate)*n(l.qty))});
+  (w.hardware||[]).forEach((l,i)=>{const e=$('hw'+i);if(e)e.textContent=fmt(n(l.qty)*n(l.price))});
+  (w.outer||[]).forEach((l,i)=>{const e=$('ou'+i);if(e)e.textContent=fmt(n(l.qty)*n(l.price))});
+  const port=(w.port||s.port)==='HK'?'香港':'盐田';
+  $('sumCost').textContent='¥'+fmt(r.productCost);
+  $('kFreight').textContent='¥'+fmt(r.freight);
+  $('kCost').textContent='¥'+fmt(r.cost);
+  $('kProfit').textContent='¥'+fmt(r.profitAmt);
+  $('kPrice').textContent='¥'+fmt(r.price);
+  $('kUsdLabel').textContent=`④ 美金报价 FOB ${port}（汇率 ${s.fx}）`;
+  $('kUsd').textContent='$'+fmt(r.usd);
+  $('kPack').textContent=`${r.pcs} 件 / ${fmt(r.cuft,2)} ft³`;
+  $('kLoad').textContent=r.loadPcs?r.loadPcs+' 件':'—';
+  const parts=[['黑身材料',r.metal],['外配件',r.outer],['表面处理',r.areaFin+r.kgFin],['包材纸箱',r.pack+r.carton],['人工',r.labor],['管销',r.mgmtAmt],['五金',r.hw],['不良',r.defect]];
+  const mx=Math.max(...parts.map(p=>p[1]),1);
+  $('bars').innerHTML=parts.map(([k,v])=>`<div class="row"><span>${k}</span><div class="track"><div class="fill" style="width:${(v/mx*100).toFixed(1)}%"></div></div><span class="n">${fmt(v)}</span></div>`).join('');
+  $('sInfo').textContent=`每箱 ${r.pcs} 件 · 纸箱 ¥${fmt(r.carton)}/件`;
+  $('sMetal').textContent=`材料 ¥${fmt(r.metal)} · 表面 ¥${fmt(r.areaFin+r.kgFin)} · ${fmt(r.weight,2)} kg`;
+  $('sLabor').textContent='¥'+fmt(r.labor);$('sHw').textContent='¥'+fmt(r.hw);
+  $('sPack').textContent=`¥${fmt(r.pack)}（含预涨）`;$('sOuter').textContent=`¥${fmt(r.outer)}（含损耗）`;
+  $('cartonHint').textContent=`每箱纸箱 ¥${fmt(r.cartonPerCtn)}，每箱材积 ${fmt(r.cuft,2)} 立方英尺；按每箱 ${r.pcs} 件分摊。`;
+  $('packHint').textContent=`合计 ¥${fmt(r.packRaw)}，加预涨 ${fmt(n(s.packRise)*100,0)}% 后 ¥${fmt(r.pack)}。`;
+  $('outerHint').textContent=`合计 ¥${fmt(r.outerRaw)}，加损耗 ${fmt(n(s.outerLoss)*100,0)}% 后 ¥${fmt(r.outer)}。`;
+  const name=w.nameEn||w.name||'';
+  const lines=[`Item: ${w.code||''}${name?' '+name:''}${w.variant?' ('+w.variant+')':''}`,
+    w.size?`Size: ${w.size} mm`:null,
+    `Packing: ${r.pcs} pc${r.pcs>1?'s':''}/ctn, ${fmt(r.cuft,2)} cuft/ctn`,
+    r.loadPcs?`40'HQ loading: approx. ${r.loadPcs} pcs`:null,
+    `Price: USD ${fmt(r.usd)}/pc FOB ${port==='香港'?'Hong Kong':'Yantian'}`,
+    `Validity: ${n(s.validDays)||30} days`];
+  $('custText').textContent=lines.filter(Boolean).join('\n');
+  if(document.activeElement!==$('profitQuick'))$('profitQuick').value=+(r.margin*100).toFixed(2);
+}
+function renderAll(){renderModelSel();if(!S.work){$('quoteBody').hidden=true;return}$('quoteBody').hidden=false;renderTables();renderSwapSelects();recalc()}
+
+/* ---------- editing ---------- */
+const NUMP=new Set(['t','a','b','th','len','qty','rate','price','amount','pcsPerCtn','L','W','H','type']);
+document.addEventListener('input',e=>{
+  const el=e.target;if(!S.work)return;
+  if(el.dataset.k){const row=S.work[el.dataset.k][+el.dataset.i],p=el.dataset.p;row[p]=NUMP.has(p)?(el.value===''?'':n(el.value)):el.value;
+    if(p==='fin'&&!el.value)delete row.fin;setDirty(true);recalc();if(p==='mat'||p==='fin')renderSwapSelects();return}
+  if(el.dataset.f){const p=el.dataset.f;S.work[p]=NUMP.has(p)?n(el.value):el.value;setDirty(true);recalc();return}
+  if(el.dataset.c){S.work.carton=S.work.carton||{};const p=el.dataset.c;S.work.carton[p]=NUMP.has(p)?n(el.value):el.value;setDirty(true);recalc();return}
+});
+document.addEventListener('change',e=>{const el=e.target;if(el.tagName==='SELECT'&&(el.dataset.k||el.dataset.f||el.dataset.c))el.dispatchEvent(new Event('input',{bubbles:true}))});
+$('profitQuick').addEventListener('input',e=>{S.profitOverride=e.target.value===''?null:n(e.target.value)/100;recalc()});
+document.addEventListener('click',e=>{
+  const el=e.target.closest('button');if(!el||!S.work)return;
+  if(el.dataset.del){S.work[el.dataset.del].splice(+el.dataset.i,1);setDirty(true);renderTables();renderSwapSelects();recalc()}
+  if(el.dataset.add){const k=el.dataset.add;S.work[k]=S.work[k]||[];
+    const blank={metal:{t:1,len:'',qty:1,mat:Object.keys(S.mats)[0]||''},labor:{name:'',rate:'',qty:1},hardware:{name:'',spec:'',qty:1,price:''},packaging:{name:'',spec:'',amount:''},outer:{name:'',qty:1,price:''}}[k];
+    S.work[k].push(blank);setDirty(true);renderTables();recalc()}
+});
+$('swapMatBtn').addEventListener('click',()=>{const f=$('swapMatFrom').value,t=$('swapMatTo').value;if(!f||!t||f===t)return;
+  let c=0;S.work.metal.forEach(l=>{if(l.mat===f){l.mat=t;c++}});setDirty(true);renderTables();renderSwapSelects();recalc();toast(`已替换 ${c} 行材料`)});
+$('swapFinBtn').addEventListener('click',()=>{const f=$('swapFinFrom').value,t=$('swapFinTo').value;if(!f||f===t)return;
+  let c=0;S.work.metal.forEach(l=>{if(l.fin===f){if(t)l.fin=t;else delete l.fin;c++}});setDirty(true);renderTables();renderSwapSelects();recalc();toast(`已替换 ${c} 行表面处理`)});
+$('scaleBtn').addEventListener('click',()=>{const p=n($('scalePct').value);if(!p)return;
+  S.work.metal.forEach(l=>{if(l.len!=='')l.len=Math.round(n(l.len)*(1+p/100))});$('scalePct').value=0;setDirty(true);renderTables();recalc();toast(`长度已调整 ${p}%`)});
+$('resetBtn').addEventListener('click',()=>{if(S.cur)loadModel(S.cur)});
+
+/* ---------- save / clone / delete ---------- */
+async function writeDoc(path,data){const [collection,id]=path.split('/');
+  const {error}=await S.db.from('docs').upsert({collection,id,data,updated_at:new Date().toISOString()});
+  if(error){toast('保存失败：'+error.message);return false}
+  const map={settings:null,materials:S.mats,finishes:S.fins,models:S.models}[collection];
+  if(collection==='settings')S.settings=Object.assign({},data);else if(map)map[id]=JSON.parse(JSON.stringify(data));
+  return true}
+async function deleteDoc(path){const [collection,id]=path.split('/');
+  const {error}=await S.db.from('docs').delete().eq('collection',collection).eq('id',id);
+  if(error){toast('删除失败：'+error.message);return false}
+  const map={materials:S.mats,finishes:S.fins,models:S.models}[collection];if(map)delete map[id];return true}
+$('saveBtn').addEventListener('click',async()=>{if(!S.db||!S.cur)return;const d=clone(S.work);d.updated=new Date().toISOString().slice(0,10);
+  if(await writeDoc('models/'+S.cur,d)){setDirty(false);renderModelSel();toast('已保存')}});
+$('cloneBtn').addEventListener('click',()=>{const w=S.work||{};$('newCode').value=w.code||'';$('newName').value=w.name||'';$('newVariant').value=(w.variant||'')+'（改款）';$('cloneForm').hidden=false;$('newCode').focus()});
+$('cloneCancel').addEventListener('click',()=>$('cloneForm').hidden=true);
+$('cloneOk').addEventListener('click',async()=>{if(!S.db)return;const code=$('newCode').value.trim();if(!code){toast('请填写型号');return}
+  const d=clone(S.work);d.code=code;d.name=$('newName').value.trim();d.variant=$('newVariant').value.trim();d.updated=new Date().toISOString().slice(0,10);
+  const id=(code+'-'+Date.now().toString(36)).replace(/[^A-Za-z0-9_\-.~:@+]/g,'');
+  if(await writeDoc('models/'+id,d)){$('cloneForm').hidden=true;S.models[id]=d;S.cur=id;S.work=clone(d);setDirty(false);renderAll();toast('已另存为新款')}});
+$('delBtn').addEventListener('click',()=>{$('delMsg').textContent=`删除「${modelLabel(S.work)}」？删除后无法恢复。`;$('delForm').hidden=false});
+$('delCancel').addEventListener('click',()=>$('delForm').hidden=true);
+$('delOk').addEventListener('click',async()=>{if(await deleteDoc('models/'+S.cur)){$('delForm').hidden=true;S.cur=null;S.work=null;afterLoad();toast('已删除')}});
+$('copyBtn').addEventListener('click',async()=>{const t=$('custText').textContent;
+  try{await navigator.clipboard.writeText(t);toast('已复制')}catch(e){const r=document.createRange();r.selectNodeContents($('custText'));const s=getSelection();s.removeAllRanges();s.addRange(r);toast('已选中，请手动复制')}});
+
+/* ---------- prices tab ---------- */
+function usageCount(field,id){return Object.values(S.models).filter(m=>(m.metal||[]).some(l=>l[field]===id)).length}
+function renderPrices(){
+  if(!S.pricesDirty){S.matsWork=clone(S.mats);S.finsWork=clone(S.fins)}
+  $('tMats').innerHTML=sortByOrder(S.matsWork).map(([id,m])=>`<tr>
+    <td><input class="w-l" data-mat="${esc(id)}" data-p="name" value="${esc(m.name)}"></td>
+    <td><input class="n w-s" type="number" step="any" data-mat="${esc(id)}" data-p="price" value="${esc(m.price)}"></td>
+    <td><input class="w-l" data-mat="${esc(id)}" data-p="note" value="${esc(m.note)}"></td>
+    <td class="n">${esc(m.updated||'')}</td><td class="n">${usageCount('mat',id)}</td>
+    <td>${usageCount('mat',id)?'':`<button class="x" type="button" data-delmat="${esc(id)}" aria-label="删除">×</button>`}</td></tr>`).join('');
+  $('tFins').innerHTML=sortByOrder(S.finsWork).map(([id,f])=>`<tr>
+    <td><input class="w-l" data-fin="${esc(id)}" data-p="name" value="${esc(f.name)}"></td>
+    <td><select data-fin="${esc(id)}" data-p="basis"><option value="area"${f.basis!=='kg'?' selected':''}>元/平方米（按面积）</option><option value="kg"${f.basis==='kg'?' selected':''}>元/公斤（按重量）</option></select></td>
+    <td><input class="n w-s" type="number" step="any" data-fin="${esc(id)}" data-p="price" value="${esc(f.price)}"></td>
+    <td><input class="w-l" data-fin="${esc(id)}" data-p="note" value="${esc(f.note)}"></td>
+    <td class="n">${usageCount('fin',id)}</td>
+    <td>${usageCount('fin',id)?'':`<button class="x" type="button" data-delfin="${esc(id)}" aria-label="删除">×</button>`}</td></tr>`).join('');
+}
+function setPricesDirty(v){S.pricesDirty=v;$('pricesDirty').hidden=!v;$('savePrices').disabled=!v||!S.canWrite}
+$('tab-prices').addEventListener('input',e=>{const el=e.target;const id=el.dataset.mat||el.dataset.fin;if(!id)return;
+  const obj=el.dataset.mat?S.matsWork:S.finsWork;const p=el.dataset.p;obj[id][p]=p==='price'?n(el.value):el.value;obj[id]._ch=true;setPricesDirty(true)});
+$('tab-prices').addEventListener('change',e=>{if(e.target.tagName==='SELECT')e.target.dispatchEvent(new Event('input',{bubbles:true}))});
+$('tab-prices').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.delmat){S.matsWork[b.dataset.delmat]._del=true;delete S.matsWork[b.dataset.delmat].order;S._delM=(S._delM||[]).concat(b.dataset.delmat);delete S.matsWork[b.dataset.delmat];setPricesDirty(true);renderPricesKeep()}
+  if(b.dataset.delfin){S._delF=(S._delF||[]).concat(b.dataset.delfin);delete S.finsWork[b.dataset.delfin];setPricesDirty(true);renderPricesKeep()}});
+function renderPricesKeep(){const d=S.pricesDirty;S.pricesDirty=true;renderPrices();S.pricesDirty=d}
+$('addMat').addEventListener('click',()=>{const id='m'+Date.now().toString(36);S.matsWork[id]={name:'新材料',price:0,note:'',order:99,_ch:true};setPricesDirty(true);renderPricesKeep()});
+$('addFin').addEventListener('click',()=>{const id='f'+Date.now().toString(36);S.finsWork[id]={name:'新表面处理',basis:'area',price:0,note:'',order:99,_ch:true};setPricesDirty(true);renderPricesKeep()});
+$('savePrices').addEventListener('click',async()=>{if(!S.db)return;const today=new Date().toISOString().slice(0,10);let ok=true;
+  for(const [id,m] of Object.entries(S.matsWork)){if(!m._ch)continue;const d=Object.assign({},m);delete d._ch;
+    if(!S.mats[id]||S.mats[id].price!==d.price)d.updated=today;ok=await writeDoc('materials/'+id,d)&&ok}
+  for(const [id,f] of Object.entries(S.finsWork)){if(!f._ch)continue;const d=Object.assign({},f);delete d._ch;ok=await writeDoc('finishes/'+id,d)&&ok}
+  for(const id of S._delM||[]){ok=await deleteDoc('materials/'+id)&&ok}
+  for(const id of S._delF||[]){ok=await deleteDoc('finishes/'+id)&&ok}
+  S._delM=[];S._delF=[];if(ok){setPricesDirty(false);renderPrices();if(S.work){renderTables();renderSwapSelects();recalc()}toast('价格表已保存，所有款式已按新价格计算')}});
+
+/* ---------- settings tab ---------- */
+function renderSettings(){if(!S.settings)return;if(!S.setDirty)S.setWork=clone(S.settings);
+  document.querySelectorAll('[data-s]').forEach(el=>{const v=S.setWork[el.dataset.s];el.value=el.dataset.pct?+(n(v)*100).toFixed(4):(v??'')})}
+$('setForm').addEventListener('input',e=>{const el=e.target;if(!el.dataset.s)return;S.setWork[el.dataset.s]=el.dataset.pct?n(el.value)/100:n(el.value);S.setDirty=true;$('setDirty').hidden=false;$('saveSettings').disabled=!S.canWrite});
+$('saveSettings').addEventListener('click',async()=>{if(await writeDoc('settings/main',S.setWork)){S.setDirty=false;$('setDirty').hidden=true;$('saveSettings').disabled=true;recalc();toast('参数已保存')}});
+
+/* ---------- data loading (Supabase) ---------- */
+async function loadAll(){
+  const {data,error}=await S.db.from('docs').select('collection,id,data');
+  if(error){const b=$('dbNotice');b.textContent='读取数据失败：'+error.message;b.hidden=false;return}
+  $('dbNotice').hidden=true;
+  const g={settings:{},materials:{},finishes:{},models:{}};
+  for(const r of data||[]){if(g[r.collection])g[r.collection][r.id]=Object.assign({},r.data)}
+  S.settings=g.settings.main||null;S.mats=g.materials;S.fins=g.finishes;S.models=g.models;
+  afterLoad()}
+function afterLoad(){
+  if(S.cur&&!S.models[S.cur]){S.cur=null;S.work=null}
+  if(!S.cur){const ids=Object.keys(S.models).sort();if(ids.length){S.cur=ids[0];S.work=clone(S.models[ids[0]]);setDirty(false)}}
+  else if(!S.dirty){S.work=clone(S.models[S.cur])}
+  if(!S.setDirty)renderSettings();if(!S.pricesDirty)renderPrices();renderAll()}
+function showApp(session){
+  const on=!!session;$('login').hidden=on;document.querySelector('nav.tabs').hidden=!on;$('app').hidden=!on;$('logoutBtn').hidden=!on;
+  $('who').textContent=on?(session.user.email||''):'';
+  if(on)loadAll()}
+(async()=>{
+  const cfg=window.XY_CONFIG||{};
+  if(!window.supabase||!cfg.url||!cfg.key){const b=$('dbNotice');b.textContent='还没有设置数据库连接（config.js）。';b.hidden=false;return}
+  S.db=window.supabase.createClient(cfg.url,cfg.key);
+  const {data:{session}}=await S.db.auth.getSession();showApp(session);
+  S.db.auth.onAuthStateChange((ev,sess)=>{if(ev==='SIGNED_IN'&&$('app').hidden)showApp(sess);if(ev==='SIGNED_OUT')showApp(null)});
+  window.addEventListener('focus',()=>{if(!$('app').hidden&&!S.dirty&&!S.pricesDirty&&!S.setDirty)loadAll()});
+})();
+$('login').addEventListener('submit',async e=>{e.preventDefault();$('loginErr').textContent='';$('loginBtn').disabled=true;
+  const {data,error}=await S.db.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});
+  $('loginBtn').disabled=false;
+  if(error){$('loginErr').textContent='登录失败：邮箱或密码不对。';return}
+  showApp(data.session)});
+$('logoutBtn').addEventListener('click',async()=>{await S.db.auth.signOut();S.cur=null;S.work=null;showApp(null)});
+</script>
+</body>
+</html>
