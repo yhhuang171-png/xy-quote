@@ -97,6 +97,7 @@ td select{padding:4px}
 .copybox{white-space:pre-wrap;font-family:var(--mono);font-size:13px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;margin-top:8px}
 .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .inline-form{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin-top:10px;padding:12px;border:1px dashed var(--line);border-radius:8px}
+.inline-form.leave{margin-top:14px;border-style:solid;border-color:var(--warn);background:var(--warn-soft);color:var(--warn)}
 .inline-form label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
 h1.page{font-size:20px;margin:20px 0 4px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:14px;z-index:20}
@@ -134,6 +135,12 @@ h1.page{font-size:20px;margin:20px 0 4px}
     <div class="err" id="loginErr"></div>
   </form>
   <div id="app" hidden>
+  <div id="leaveForm" class="inline-form leave" hidden role="alertdialog" aria-labelledby="leaveMsg">
+    <span id="leaveMsg"></span>
+    <button class="btn primary" id="leaveSave" type="button"></button>
+    <button class="btn" id="leaveDiscard" type="button"></button>
+    <button class="btn" id="leaveCancel" type="button">取消</button>
+  </div>
 
   <section id="tab-quote">
     <div class="bar-row" style="margin-top:14px">
@@ -328,6 +335,12 @@ h1.page{font-size:20px;margin:20px 0 4px}
         <li>④ 美金报价 = 人民币报价 ÷ 汇率</li>
       </ol>
     </div>
+    <div class="card" style="margin-top:12px">
+      <div class="label">数据备份</div>
+      <p style="margin:8px 0 0;font-size:14px">把价格表、所有款式和参数下载成一个备份文件，存在电脑里。建议每次大改之后、或者每周导出一次。</p>
+      <p class="hint">Supabase 免费版如果连续一周没人使用，数据库会自动暂停，网页会连不上。数据不会丢，登录 Supabase 后台点恢复（Restore）就可以继续用。</p>
+      <div class="actions"><button class="btn primary" id="exportBtn" type="button">导出备份</button><span class="hint" id="lastBackup"></span></div>
+    </div>
   </section>
   </div>
 </div>
@@ -404,8 +417,21 @@ function renderModelSel(){
 }
 function loadModel(id){S.cur=id;S.work=clone(S.models[id]);setDirty(false);S.profitOverride=null;renderAll()}
 $('modelSel').addEventListener('change',e=>{
-  if(S.dirty){toast('当前款式有未保存的修改，已放弃');}
-  loadModel(e.target.value)});
+  const id=e.target.value;
+  if(!S.dirty){loadModel(id);return}
+  e.target.value=S.cur;
+  askLeave({msg:`「${modelLabel(S.models[S.cur]||S.work)}」有未保存的修改`,save:'保存后切换',discard:'不保存，直接切换',
+    onSave:async()=>{if(await saveModel())loadModel(id)},onDiscard:()=>loadModel(id)})});
+/* ---------- unsaved-changes prompt ---------- */
+function anyDirty(){return S.dirty||S.pricesDirty||S.setDirty}
+function dirtyParts(){const p=[];if(S.dirty)p.push('款式');if(S.pricesDirty)p.push('价格表');if(S.setDirty)p.push('参数');return p}
+function askLeave(o){S.leave=o;$('leaveMsg').textContent=o.msg;$('leaveSave').textContent=o.save;$('leaveDiscard').textContent=o.discard;
+  $('leaveForm').hidden=false;$('leaveSave').disabled=!S.canWrite;$('leaveCancel').focus()}
+function closeLeave(){$('leaveForm').hidden=true;S.leave=null}
+$('leaveSave').addEventListener('click',async()=>{const o=S.leave;if(!o)return;$('leaveSave').disabled=true;await o.onSave();$('leaveSave').disabled=false;if(S.leave===o)closeLeave()});
+$('leaveDiscard').addEventListener('click',()=>{const o=S.leave;closeLeave();if(o)o.onDiscard()});
+$('leaveCancel').addEventListener('click',closeLeave);
+window.addEventListener('beforeunload',e=>{if(anyDirty()){e.preventDefault();e.returnValue=''}});
 function setDirty(v){S.dirty=v;$('dirty').hidden=!v;$('saveBtn').disabled=!v||!S.canWrite;$('resetBtn').disabled=!v}
 
 /* ---------- render quote ---------- */
@@ -521,17 +547,18 @@ $('resetBtn').addEventListener('click',()=>{if(S.cur)loadModel(S.cur)});
 
 /* ---------- save / clone / delete ---------- */
 async function writeDoc(path,data){const [collection,id]=path.split('/');
-  const {error}=await S.db.from('docs').upsert({collection,id,data,updated_at:new Date().toISOString()});
-  if(error){toast('保存失败：'+error.message);return false}
+  let error;try{({error}=await S.db.from('docs').upsert({collection,id,data,updated_at:new Date().toISOString()}))}catch(e){error=e}
+  if(error){toast('保存失败：'+explainErr(error));return false}
   const map={settings:null,materials:S.mats,finishes:S.fins,models:S.models}[collection];
   if(collection==='settings')S.settings=Object.assign({},data);else if(map)map[id]=JSON.parse(JSON.stringify(data));
   return true}
 async function deleteDoc(path){const [collection,id]=path.split('/');
-  const {error}=await S.db.from('docs').delete().eq('collection',collection).eq('id',id);
-  if(error){toast('删除失败：'+error.message);return false}
+  let error;try{({error}=await S.db.from('docs').delete().eq('collection',collection).eq('id',id))}catch(e){error=e}
+  if(error){toast('删除失败：'+explainErr(error));return false}
   const map={materials:S.mats,finishes:S.fins,models:S.models}[collection];if(map)delete map[id];return true}
-$('saveBtn').addEventListener('click',async()=>{if(!S.db||!S.cur)return;const d=clone(S.work);d.updated=new Date().toISOString().slice(0,10);
-  if(await writeDoc('models/'+S.cur,d)){setDirty(false);renderModelSel();toast('已保存')}});
+async function saveModel(){if(!S.db||!S.cur)return false;const d=clone(S.work);d.updated=new Date().toISOString().slice(0,10);
+  if(await writeDoc('models/'+S.cur,d)){setDirty(false);renderModelSel();toast('已保存');return true}return false}
+$('saveBtn').addEventListener('click',saveModel);
 $('cloneBtn').addEventListener('click',()=>{const w=S.work||{};$('newCode').value=w.code||'';$('newName').value=w.name||'';$('newVariant').value=(w.variant||'')+'（改款）';$('cloneForm').hidden=false;$('newCode').focus()});
 $('cloneCancel').addEventListener('click',()=>$('cloneForm').hidden=true);
 $('cloneOk').addEventListener('click',async()=>{if(!S.db)return;const code=$('newCode').value.trim();if(!code){toast('请填写型号');return}
@@ -572,24 +599,36 @@ $('tab-prices').addEventListener('click',e=>{const b=e.target.closest('button');
 function renderPricesKeep(){const d=S.pricesDirty;S.pricesDirty=true;renderPrices();S.pricesDirty=d}
 $('addMat').addEventListener('click',()=>{const id='m'+Date.now().toString(36);S.matsWork[id]={name:'新材料',price:0,note:'',order:99,_ch:true};setPricesDirty(true);renderPricesKeep()});
 $('addFin').addEventListener('click',()=>{const id='f'+Date.now().toString(36);S.finsWork[id]={name:'新表面处理',basis:'area',price:0,note:'',order:99,_ch:true};setPricesDirty(true);renderPricesKeep()});
-$('savePrices').addEventListener('click',async()=>{if(!S.db)return;const today=new Date().toISOString().slice(0,10);let ok=true;
+async function savePricesAll(){if(!S.db)return false;const today=new Date().toISOString().slice(0,10);let ok=true;
   for(const [id,m] of Object.entries(S.matsWork)){if(!m._ch)continue;const d=Object.assign({},m);delete d._ch;
     if(!S.mats[id]||S.mats[id].price!==d.price)d.updated=today;ok=await writeDoc('materials/'+id,d)&&ok}
   for(const [id,f] of Object.entries(S.finsWork)){if(!f._ch)continue;const d=Object.assign({},f);delete d._ch;ok=await writeDoc('finishes/'+id,d)&&ok}
   for(const id of S._delM||[]){ok=await deleteDoc('materials/'+id)&&ok}
   for(const id of S._delF||[]){ok=await deleteDoc('finishes/'+id)&&ok}
-  S._delM=[];S._delF=[];if(ok){setPricesDirty(false);renderPrices();if(S.work){renderTables();renderSwapSelects();recalc()}toast('价格表已保存，所有款式已按新价格计算')}});
+  S._delM=[];S._delF=[];if(ok){setPricesDirty(false);renderPrices();if(S.work){renderTables();renderSwapSelects();recalc()}toast('价格表已保存，所有款式已按新价格计算')}return ok}
+$('savePrices').addEventListener('click',savePricesAll);
 
 /* ---------- settings tab ---------- */
 function renderSettings(){if(!S.settings)return;if(!S.setDirty)S.setWork=clone(S.settings);
   document.querySelectorAll('[data-s]').forEach(el=>{const v=S.setWork[el.dataset.s];el.value=el.dataset.pct?+(n(v)*100).toFixed(4):(v??'')})}
 $('setForm').addEventListener('input',e=>{const el=e.target;if(!el.dataset.s)return;S.setWork[el.dataset.s]=el.dataset.pct?n(el.value)/100:n(el.value);S.setDirty=true;$('setDirty').hidden=false;$('saveSettings').disabled=!S.canWrite});
-$('saveSettings').addEventListener('click',async()=>{if(await writeDoc('settings/main',S.setWork)){S.setDirty=false;$('setDirty').hidden=true;$('saveSettings').disabled=true;recalc();toast('参数已保存')}});
+async function saveSettingsAll(){if(await writeDoc('settings/main',S.setWork)){S.setDirty=false;$('setDirty').hidden=true;$('saveSettings').disabled=true;recalc();toast('参数已保存');return true}return false}
+$('saveSettings').addEventListener('click',saveSettingsAll);
+
+/* ---------- error messages ---------- */
+function explainErr(err){
+  const msg=String((err&&err.message)||err||''),code=err&&err.code,st=err&&err.status;
+  if(code==='invalid_credentials'||/invalid login credentials/i.test(msg))return '邮箱或密码不对。';
+  if(code==='email_not_confirmed'||/not confirmed/i.test(msg))return '这个账号还没确认，请在 Supabase 后台确认。';
+  if(/failed to fetch|networkerror|load failed|network request failed/i.test(msg)||st===0)return '连不上数据库，请检查网络或 VPN。如果网络正常，数据库可能已暂停（太久没用），请登录 Supabase 后台恢复。';
+  if(st>=500||/paused|unavailable|timeout/i.test(msg))return '数据库可能已暂停（太久没用）或暂时不可用，请登录 Supabase 后台恢复。';
+  return '出错了：'+(msg||'未知错误');}
 
 /* ---------- data loading (Supabase) ---------- */
 async function loadAll(){
-  const {data,error}=await S.db.from('docs').select('collection,id,data');
-  if(error){const b=$('dbNotice');b.textContent='读取数据失败：'+error.message;b.hidden=false;return}
+  let data,error;
+  try{({data,error}=await S.db.from('docs').select('collection,id,data'))}catch(e){error=e}
+  if(error){const b=$('dbNotice');b.textContent='读取数据失败：'+explainErr(error);b.hidden=false;return}
   $('dbNotice').hidden=true;
   const g={settings:{},materials:{},finishes:{},models:{}};
   for(const r of data||[]){if(g[r.collection])g[r.collection][r.id]=Object.assign({},r.data)}
@@ -613,11 +652,32 @@ function showApp(session){
   window.addEventListener('focus',()=>{if(!$('app').hidden&&!S.dirty&&!S.pricesDirty&&!S.setDirty)loadAll()});
 })();
 $('login').addEventListener('submit',async e=>{e.preventDefault();$('loginErr').textContent='';$('loginBtn').disabled=true;
-  const {data,error}=await S.db.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});
+  let data,error;
+  try{({data,error}=await S.db.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value}))}catch(e){error=e}
   $('loginBtn').disabled=false;
-  if(error){$('loginErr').textContent='登录失败：邮箱或密码不对。';return}
+  if(error){$('loginErr').textContent='登录失败：'+explainErr(error);return}
   showApp(data.session)});
-$('logoutBtn').addEventListener('click',async()=>{await S.db.auth.signOut();S.cur=null;S.work=null;showApp(null)});
+async function doLogout(){setDirty(false);setPricesDirty(false);S.setDirty=false;$('setDirty').hidden=true;
+  await S.db.auth.signOut();S.cur=null;S.work=null;showApp(null)}
+$('logoutBtn').addEventListener('click',()=>{
+  if(!anyDirty()){doLogout();return}
+  askLeave({msg:`${dirtyParts().join('、')}有未保存的修改`,save:'保存后退出',discard:'不保存，直接退出',
+    onSave:async()=>{let ok=true;if(S.dirty)ok=await saveModel()&&ok;if(S.pricesDirty)ok=await savePricesAll()&&ok;if(S.setDirty)ok=await saveSettingsAll()&&ok;if(ok)doLogout()},
+    onDiscard:doLogout})});
+/* ---------- backup ---------- */
+function showLastBackup(){let t=null;try{t=localStorage.getItem('xyLastBackup')}catch(e){}
+  $('lastBackup').textContent=t?`这台电脑上次导出：${t}`:'这台电脑还没有导出过备份'}
+$('exportBtn').addEventListener('click',async()=>{if(!S.db)return;$('exportBtn').disabled=true;
+  let data,error;try{({data,error}=await S.db.from('docs').select('collection,id,data,updated_at'))}catch(e){error=e}
+  $('exportBtn').disabled=false;
+  if(error){toast('导出失败：'+explainErr(error));return}
+  const today=new Date().toISOString().slice(0,10);
+  const blob=new Blob([JSON.stringify({app:'xy-quote',exportedAt:new Date().toISOString(),docs:data},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`xy-quote-备份-${today}.json`;
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
+  try{localStorage.setItem('xyLastBackup',today)}catch(e){}
+  showLastBackup();toast(`已导出 ${data.length} 条数据`)});
+showLastBackup();
 </script>
 </body>
 </html>
