@@ -175,6 +175,7 @@ h1.page{font-size:20px;margin:20px 0 4px}
           <div class="kv">
             <div><span class="label">每箱件数 / 每箱材积</span><b id="kPack">—</b></div>
             <div><span class="label">40HQ 约装</span><b id="kLoad">—</b></div>
+            <div><span class="label">出口标准</span><b id="kStd">—</b></div>
           </div>
         </div>
         <div class="card">
@@ -264,11 +265,32 @@ h1.page{font-size:20px;margin:20px 0 4px}
       </details>
 
       <details class="sec">
-        <summary><span class="t">外配件（坐垫、面料、海绵、塑胶件）</span><span class="num" id="sOuter"></span></summary>
+        <summary><span class="t">外配件（坐垫、塑胶件等）</span><span class="num" id="sOuter"></span></summary>
         <div class="body">
           <div class="tbl-wrap"><table><thead><tr><th>名称</th><th>数量</th><th>单价</th><th>金额</th><th></th></tr></thead><tbody id="tOuter"></tbody></table></div>
           <button class="btn addrow" type="button" data-add="outer">＋ 加一行</button>
           <div class="hint" id="outerHint"></div>
+        </div>
+      </details>
+
+      <details class="sec" open>
+        <summary><span class="t">软包（面料、海绵、木板）</span><span class="num" id="sSoft"></span></summary>
+        <div class="body">
+          <div class="form-grid">
+            <label>出口标准<select data-f="std" id="stdSel"><option value="US">美标</option><option value="UK">英标（防火）</option></select></label>
+          </div>
+          <div class="hint" id="stdHint"></div>
+          <div class="label" style="margin-top:14px">面料</div>
+          <div class="tbl-wrap"><table><thead><tr><th>面料</th><th>用量</th><th>单位</th><th>单价</th><th>金额</th><th>备注</th><th></th></tr></thead><tbody id="tFabric"></tbody></table></div>
+          <button class="btn addrow" type="button" data-add="fabric">＋ 加面料</button>
+          <div class="label" style="margin-top:14px">海绵</div>
+          <div class="tbl-wrap"><table><thead><tr><th>海绵</th><th>长 mm</th><th>宽 mm</th><th>厚 mm</th><th>数量</th><th>体积 m³</th><th>实际用</th><th>金额</th><th></th></tr></thead><tbody id="tFoam"></tbody></table></div>
+          <button class="btn addrow" type="button" data-add="foam">＋ 加海绵</button>
+          <div class="label" style="margin-top:14px">木板</div>
+          <div class="tbl-wrap"><table><thead><tr><th>木板</th><th>长 mm</th><th>宽 mm</th><th>数量</th><th>成品单价</th><th>金额</th><th></th></tr></thead><tbody id="tBoard"></tbody></table></div>
+          <button class="btn addrow" type="button" data-add="board">＋ 加木板</button>
+          <div class="hint">木板按面积算：选种类，填长和宽。如果是供应商的成品，填「成品单价」，就按单价算。</div>
+          <div class="hint" id="softHint"></div>
         </div>
       </details>
 
@@ -294,13 +316,30 @@ h1.page{font-size:20px;margin:20px 0 4px}
     <div class="hint">这里的价格改一次，所有用到这个材料的款式都会按新价格重新计算。</div>
     <div class="card" style="margin-top:12px">
       <div class="label">管材 / 板材（元/公斤）</div>
-      <div class="tbl-wrap"><table><thead><tr><th>名称</th><th>单价 元/kg</th><th>备注</th><th>更新日期</th><th>用到的款式</th><th></th></tr></thead><tbody id="tMats"></tbody></table></div>
-      <button class="btn addrow" type="button" id="addMat">＋ 新材料</button>
+      <div class="tbl-wrap"><table><thead><tr><th>名称</th><th>单价 元/kg</th><th>备注</th><th>更新日期</th><th>用到的款式</th><th></th></tr></thead><tbody id="tc-materials"></tbody></table></div>
+      <button class="btn addrow" type="button" data-addcat="materials">＋ 新材料</button>
     </div>
     <div class="card" style="margin-top:12px">
       <div class="label">表面处理</div>
-      <div class="tbl-wrap"><table><thead><tr><th>名称</th><th>计价方式</th><th>单价</th><th>备注</th><th>用到的款式</th><th></th></tr></thead><tbody id="tFins"></tbody></table></div>
-      <button class="btn addrow" type="button" id="addFin">＋ 新表面处理</button>
+      <div class="tbl-wrap"><table><thead><tr><th>名称</th><th>计价方式</th><th>小件单价</th><th>单根超过 1 米</th><th>备注</th><th>用到的款式</th><th></th></tr></thead><tbody id="tc-finishes"></tbody></table></div>
+      <button class="btn addrow" type="button" data-addcat="finishes">＋ 新表面处理</button>
+      <div class="hint">按面积计价的，单根管子长度超过 1000 毫米时用「单根超过 1 米」的单价；这一格留空就都用小件单价。</div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="label">面料（皮按码，布按米）</div>
+      <div class="tbl-wrap"><table><thead><tr><th>名称</th><th>单位</th><th>单价</th><th>备注</th><th>更新日期</th><th>用到的款式</th><th></th></tr></thead><tbody id="tc-fabrics"></tbody></table></div>
+      <button class="btn addrow" type="button" data-addcat="fabrics">＋ 新面料</button>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="label">海绵（元/立方米）</div>
+      <div class="tbl-wrap"><table><thead><tr><th>名称</th><th>单价 元/m³</th><th>英标时换成</th><th>备注</th><th>更新日期</th><th>用到的款式</th><th></th></tr></thead><tbody id="tc-foams"></tbody></table></div>
+      <button class="btn addrow" type="button" data-addcat="foams">＋ 新海绵</button>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="label">木板（元/平方米）</div>
+      <div class="tbl-wrap"><table><thead><tr><th>名称（种类 + 厚度）</th><th>单价 元/m²</th><th>备注</th><th>更新日期</th><th>用到的款式</th><th></th></tr></thead><tbody id="tc-boards"></tbody></table></div>
+      <button class="btn addrow" type="button" data-addcat="boards">＋ 新木板</button>
+      <div class="hint">例如「三胺板 18 厘」「中纤板 15 厘」。成品木件不用加在这里，在款式里直接填成品单价。</div>
     </div>
     <div class="actions"><button class="btn primary" id="savePrices" type="button" disabled>保存价格表</button><span id="pricesDirty" class="pill" hidden>有未保存的修改</span></div>
   </section>
@@ -314,7 +353,8 @@ h1.page{font-size:20px;margin:20px 0 4px}
         <label>默认毛利率 %<input data-s="margin" data-pct="1" class="n" type="number" step="any"></label>
         <label>管销 %<input data-s="mgmt" data-pct="1" class="n" type="number" step="any"></label>
         <label>不良 %<input data-s="defect" data-pct="1" class="n" type="number" step="any"></label>
-        <label>外配件损耗 %<input data-s="outerLoss" data-pct="1" class="n" type="number" step="any"></label>
+        <label>外配件 / 软包损耗 %<input data-s="outerLoss" data-pct="1" class="n" type="number" step="any"></label>
+        <label>英标面料防火费 元/码<input data-s="frYard" class="n" type="number" step="any"></label>
         <label>包材预涨 %<input data-s="packRise" data-pct="1" class="n" type="number" step="any"></label>
         <label>盐田运费 美金/立方英尺<input data-s="freightYT" class="n" type="number" step="any"></label>
         <label>香港运费 美金/立方英尺<input data-s="freightHK" class="n" type="number" step="any"></label>
@@ -327,9 +367,12 @@ h1.page{font-size:20px;margin:20px 0 4px}
       <div class="label">计算方法</div>
       <ol style="margin:8px 0 0;padding-left:20px;font-size:14px">
         <li>小计 = 黑身材料 + 人工 + 表面处理 + 五金 + 包材（含预涨）+ 纸箱分摊</li>
-        <li>外配件 = 外配件合计 × (1 + 外配件损耗)</li>
+        <li>外配件 = 外配件合计 × (1 + 损耗)</li>
+        <li>软包 = (面料 + 海绵 + 木板) × (1 + 损耗)；面料 = 用量 × 单价，海绵 = 长 × 宽 × 厚 × 每立方米单价，木板 = 长 × 宽 × 每平方米单价（成品按单价）</li>
+        <li>英标：面料每码加防火费（按米的布折算成每米），海绵换成「英标时换成」那一种</li>
+        <li>电镀按面积算，单根管子超过 1 米用大件单价</li>
         <li>不良 = (黑身材料 + 人工 + 电镀/抛光) × 不良率</li>
-        <li>① 产品成本 = 小计 × (1 + 管销) + 外配件 + 不良</li>
+        <li>① 产品成本 = 小计 × (1 + 管销) + 外配件 + 软包 + 不良</li>
         <li>② FOB 运费 = 每箱材积 × 运费单价 × 汇率 ÷ 每箱件数</li>
         <li>③ 人民币报价 = (① + ②) ÷ (1 − 毛利率)；利润 = 报价 − (① + ②)</li>
         <li>④ 美金报价 = 人民币报价 ÷ 汇率</li>
@@ -364,11 +407,26 @@ function cartonCost(c){const i=25.4,L=n(c.L)/i,W=n(c.W)/i,H=n(c.H)/i,K=n(c.price
  if(t===2)return (L+H*2+1)*(W*2+H*3+1)*K/1000;
  if(t===4)return (L+W+2)*(W+H+1)*2*K/1000; return 0}
 function cuft(c){return n(c.L)*n(c.W)*n(c.H)/Math.pow(25.4,3)/1728}
-function compute(m,mats,fins,s){
+const YARD=0.9144;
+function finPrice(f,l){return (n(f.priceLong)>0&&n(l.len)>1000)?n(f.priceLong):n(f.price)}
+function softLines(m,cat,s){
+ const uk=m.std==='UK',out={fabric:[],foam:[],board:[],total:0};
+ const fabs=(cat&&cat.fabrics)||{},foams=(cat&&cat.foams)||{},boards=(cat&&cat.boards)||{};
+ for(const l of m.fabric||[]){const f=fabs[l.fab];let unit=f?(f.unit||'码'):'',base=f?n(f.price):0,fr=0;
+  if(uk&&f)fr=unit==='米'?n(s.frYard??12)/YARD:n(s.frYard??12);
+  const c=n(l.qty)*(base+fr);out.fabric.push({unit,base,fr,price:base+fr,c});out.total+=c}
+ for(const l of m.foam||[]){let f=foams[l.foam],used=f;if(uk&&f&&f.uk&&foams[f.uk])used=foams[f.uk];
+  const vol=n(l.L)*n(l.W)*n(l.H)/1e9*n(l.qty),c=vol*(used?n(used.price):0);
+  out.foam.push({vol,used:used?used.name:'',swapped:used!==f,c});out.total+=c}
+ for(const l of m.board||[]){let c,ar=0;
+  if(n(l.unitPrice)>0)c=n(l.unitPrice)*n(l.qty);else{const b=boards[l.board];ar=n(l.L)*n(l.W)/1e6*n(l.qty);c=ar*(b?n(b.price):0)}
+  out.board.push({ar,c});out.total+=c}
+ return out}
+function compute(m,mats,fins,s,cat){
  const r={metal:0,areaFin:0,kgFin:0,labor:0,hw:0,pack:0,carton:0,outer:0,weight:0,lines:[]};
  for(const l of m.metal||[]){const w=weight(l),mp=mats[l.mat]?n(mats[l.mat].price):0,c=w*mp;
   let fc=0,ar=0;const f=fins[l.fin];
-  if(f){if(f.basis==='kg'){fc=w*n(f.price);r.kgFin+=fc}else{ar=area(l);fc=ar*n(f.price);r.areaFin+=fc}}
+  if(f){if(f.basis==='kg'){fc=w*n(f.price);r.kgFin+=fc}else{ar=area(l);fc=ar*finPrice(f,l);r.areaFin+=fc}}
   r.metal+=c;r.weight+=w;r.lines.push({w,c,ar,fc})}
  for(const l of m.labor||[])r.labor+=n(l.rate)*n(l.qty);
  for(const l of m.hardware||[])r.hw+=n(l.qty)*n(l.price);
@@ -377,9 +435,10 @@ function compute(m,mats,fins,s){
  r.cartonPerCtn=cartonCost(c);r.carton=r.cartonPerCtn/pcs;r.cuft=cuft(c);
  r.subtotal=r.metal+r.labor+r.kgFin+r.areaFin+r.hw+r.pack+r.carton;
  let o=0;for(const l of m.outer||[])o+=n(l.qty)*n(l.price);r.outerRaw=o;r.outer=o*(1+n(s.outerLoss));
+ r.softL=softLines(m,cat,s);r.softRaw=r.softL.total;r.soft=r.softRaw*(1+n(s.outerLoss));
  r.mgmtAmt=r.subtotal*n(s.mgmt);
  r.defect=(r.metal+r.labor+r.areaFin)*n(s.defect);
- r.productCost=r.subtotal+r.mgmtAmt+r.outer+r.defect;
+ r.productCost=r.subtotal+r.mgmtAmt+r.outer+r.soft+r.defect;
  const rate=(m.port||s.port)==='HK'?n(s.freightHK):n(s.freightYT);
  r.freight=r.cuft*rate*n(s.fx)/pcs;
  r.cost=r.productCost+r.freight;
@@ -392,7 +451,7 @@ function compute(m,mats,fins,s){
 
 /* ---------- state ---------- */
 const S={db:null,mats:{},fins:{},models:{},settings:null,cur:null,work:null,dirty:false,
-  matsWork:null,finsWork:null,pricesDirty:false,setWork:null,setDirty:false,profitOverride:null,canWrite:true};
+  cat:{materials:{},finishes:{},fabrics:{},foams:{},boards:{}},cw:null,cdel:{},pricesDirty:false,setWork:null,setDirty:false,profitOverride:null,canWrite:true};
 const $=id=>document.getElementById(id);
 const fmt=(v,d=2)=>(isFinite(v)?v:0).toLocaleString('zh-CN',{minimumFractionDigits:d,maximumFractionDigits:d});
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -471,7 +530,30 @@ function renderTables(){
     <td><input class="n w-s" type="number" step="any" data-k="outer" data-i="${i}" data-p="qty" value="${esc(l.qty)}"></td>
     <td><input class="n w-s" type="number" step="any" data-k="outer" data-i="${i}" data-p="price" value="${esc(l.price)}"></td>
     <td class="n" id="ou${i}"></td><td><button class="x" type="button" data-del="outer" data-i="${i}" aria-label="删除这一行">×</button></td></tr>`).join('');
-  document.querySelectorAll('[data-f]').forEach(el=>el.value=w[el.dataset.f]??'');
+  const C=S.cat;
+  $('tFabric').innerHTML=(w.fabric||[]).map((l,i)=>`<tr>
+    <td><select class="w-l" data-k="fabric" data-i="${i}" data-p="fab">${opts(C.fabrics,l.fab,true)}</select></td>
+    <td><input class="n w-s" type="number" step="any" data-k="fabric" data-i="${i}" data-p="qty" value="${esc(l.qty??'')}"></td>
+    <td id="fu${i}"></td><td class="n" id="fp${i}"></td><td class="n" id="fc${i}"></td>
+    <td><input class="w-m" data-k="fabric" data-i="${i}" data-p="note" value="${esc(l.note??'')}"></td>
+    <td><button class="x" type="button" data-del="fabric" data-i="${i}" aria-label="删除这一行">×</button></td></tr>`).join('');
+  $('tFoam').innerHTML=(w.foam||[]).map((l,i)=>`<tr>
+    <td><select class="w-l" data-k="foam" data-i="${i}" data-p="foam">${opts(C.foams,l.foam,true)}</select></td>
+    <td><input class="n w-s" type="number" step="any" data-k="foam" data-i="${i}" data-p="L" value="${esc(l.L??'')}"></td>
+    <td><input class="n w-s" type="number" step="any" data-k="foam" data-i="${i}" data-p="W" value="${esc(l.W??'')}"></td>
+    <td><input class="n w-xs" type="number" step="any" data-k="foam" data-i="${i}" data-p="H" value="${esc(l.H??'')}"></td>
+    <td><input class="n w-xs" type="number" step="any" data-k="foam" data-i="${i}" data-p="qty" value="${esc(l.qty??'')}"></td>
+    <td class="n" id="ov${i}"></td><td id="ou2${i}"></td><td class="n" id="oc${i}"></td>
+    <td><button class="x" type="button" data-del="foam" data-i="${i}" aria-label="删除这一行">×</button></td></tr>`).join('');
+  $('tBoard').innerHTML=(w.board||[]).map((l,i)=>`<tr>
+    <td><select class="w-l" data-k="board" data-i="${i}" data-p="board"><option value="">（成品，填单价）</option>${sortByOrder(C.boards).map(([id,o])=>`<option value="${esc(id)}"${id===l.board?' selected':''}>${esc(o.name)}</option>`).join('')}</select></td>
+    <td><input class="n w-s" type="number" step="any" data-k="board" data-i="${i}" data-p="L" value="${esc(l.L??'')}"></td>
+    <td><input class="n w-s" type="number" step="any" data-k="board" data-i="${i}" data-p="W" value="${esc(l.W??'')}"></td>
+    <td><input class="n w-xs" type="number" step="any" data-k="board" data-i="${i}" data-p="qty" value="${esc(l.qty??'')}"></td>
+    <td><input class="n w-s" type="number" step="any" data-k="board" data-i="${i}" data-p="unitPrice" value="${esc(l.unitPrice??'')}"></td>
+    <td class="n" id="bc${i}"></td>
+    <td><button class="x" type="button" data-del="board" data-i="${i}" aria-label="删除这一行">×</button></td></tr>`).join('');
+  document.querySelectorAll('[data-f]').forEach(el=>el.value=w[el.dataset.f]??(el.dataset.f==='std'?'US':''));
   document.querySelectorAll('[data-c]').forEach(el=>el.value=(w.carton||{})[el.dataset.c]??'');
 }
 function renderSwapSelects(){
@@ -482,11 +564,22 @@ function renderSwapSelects(){
 }
 function recalc(){
   if(!S.work||!S.settings)return;
-  const s=effSettings(),r=compute(S.work,S.mats,S.fins,s),w=S.work;
+  const s=effSettings(),r=compute(S.work,S.mats,S.fins,s,S.cat),w=S.work;
   r.lines.forEach((x,i)=>{const a=$('mw'+i);if(a){a.textContent=fmt(x.w,3);$('mc'+i).textContent=fmt(x.c);$('mf'+i).textContent=x.fc?fmt(x.fc):''}});
   (w.labor||[]).forEach((l,i)=>{const e=$('la'+i);if(e)e.textContent=fmt(n(l.rate)*n(l.qty))});
   (w.hardware||[]).forEach((l,i)=>{const e=$('hw'+i);if(e)e.textContent=fmt(n(l.qty)*n(l.price))});
   (w.outer||[]).forEach((l,i)=>{const e=$('ou'+i);if(e)e.textContent=fmt(n(l.qty)*n(l.price))});
+  r.softL.fabric.forEach((x,i)=>{if(!$('fu'+i))return;$('fu'+i).textContent=x.unit;
+    $('fp'+i).textContent=x.fr?`${fmt(x.base)} + 防火 ${fmt(x.fr)}`:fmt(x.base);$('fc'+i).textContent=fmt(x.c)});
+  r.softL.foam.forEach((x,i)=>{if(!$('ov'+i))return;$('ov'+i).textContent=fmt(x.vol,4);
+    $('ou2'+i).textContent=x.swapped?'→ '+x.used:'';$('oc'+i).textContent=fmt(x.c)});
+  r.softL.board.forEach((x,i)=>{const e=$('bc'+i);if(e)e.textContent=fmt(x.c)});
+  const other=Object.assign({},w,{std:w.std==='UK'?'US':'UK'}),r2=compute(other,S.mats,S.fins,s,S.cat);
+  const us=w.std==='UK'?r2:r,uk=w.std==='UK'?r:r2,dUK=uk.productCost-us.productCost,pUK=us.productCost?dUK/us.productCost*100:0;
+  $('kStd').textContent=w.std==='UK'?`英标（比美标 +¥${fmt(dUK)}）`:'美标';
+  $('stdHint').textContent=`英标：面料加防火费（每码 ${fmt(n(s.frYard??12))} 元，按米的布每米 ${fmt(n(s.frYard??12)/YARD)} 元），海绵换成对应的英规防火海绵。这一款英标比美标贵 ¥${fmt(dUK)}（产品成本 +${fmt(pUK,1)}%）。外配件里的面料、海绵不会自动换。`;
+  $('sSoft').textContent=`¥${fmt(r.soft)}（含损耗）· ${w.std==='UK'?'英标':'美标'}`;
+  $('softHint').textContent=`合计 ¥${fmt(r.softRaw)}，加损耗 ${fmt(n(s.outerLoss)*100,0)}% 后 ¥${fmt(r.soft)}。`;
   const port=(w.port||s.port)==='HK'?'香港':'盐田';
   $('sumCost').textContent='¥'+fmt(r.productCost);
   $('kFreight').textContent='¥'+fmt(r.freight);
@@ -497,7 +590,7 @@ function recalc(){
   $('kUsd').textContent='$'+fmt(r.usd);
   $('kPack').textContent=`${r.pcs} 件 / ${fmt(r.cuft,2)} ft³`;
   $('kLoad').textContent=r.loadPcs?r.loadPcs+' 件':'—';
-  const parts=[['黑身材料',r.metal],['外配件',r.outer],['表面处理',r.areaFin+r.kgFin],['包材纸箱',r.pack+r.carton],['人工',r.labor],['管销',r.mgmtAmt],['五金',r.hw],['不良',r.defect]];
+  const parts=[['黑身材料',r.metal],['外配件',r.outer],['软包',r.soft],['表面处理',r.areaFin+r.kgFin],['包材纸箱',r.pack+r.carton],['人工',r.labor],['管销',r.mgmtAmt],['五金',r.hw],['不良',r.defect]];
   const mx=Math.max(...parts.map(p=>p[1]),1);
   $('bars').innerHTML=parts.map(([k,v])=>`<div class="row"><span>${k}</span><div class="track"><div class="fill" style="width:${(v/mx*100).toFixed(1)}%"></div></div><span class="n">${fmt(v)}</span></div>`).join('');
   $('sInfo').textContent=`每箱 ${r.pcs} 件 · 纸箱 ¥${fmt(r.carton)}/件`;
@@ -512,6 +605,7 @@ function recalc(){
     w.size?`Size: ${w.size} mm`:null,
     `Packing: ${r.pcs} pc${r.pcs>1?'s':''}/ctn, ${fmt(r.cuft,2)} cuft/ctn`,
     r.loadPcs?`40'HQ loading: approx. ${r.loadPcs} pcs`:null,
+    w.std==='UK'?'Upholstery: UK fire-retardant fabric and foam':null,
     `Price: USD ${fmt(r.usd)}/pc FOB ${port==='香港'?'Hong Kong':'Yantian'}`,
     `Validity: ${n(s.validDays)||30} days`];
   $('custText').textContent=lines.filter(Boolean).join('\n');
@@ -520,21 +614,22 @@ function recalc(){
 function renderAll(){renderModelSel();if(!S.work){$('quoteBody').hidden=true;return}$('quoteBody').hidden=false;renderTables();renderSwapSelects();recalc()}
 
 /* ---------- editing ---------- */
-const NUMP=new Set(['t','a','b','th','len','qty','rate','price','amount','pcsPerCtn','L','W','H','type']);
+const NUMP=new Set(['t','a','b','th','len','qty','rate','price','amount','pcsPerCtn','L','W','H','type','unitPrice']);
 document.addEventListener('input',e=>{
   const el=e.target;if(!S.work)return;
   if(el.dataset.k){const row=S.work[el.dataset.k][+el.dataset.i],p=el.dataset.p;row[p]=NUMP.has(p)?(el.value===''?'':n(el.value)):el.value;
     if(p==='fin'&&!el.value)delete row.fin;setDirty(true);recalc();if(p==='mat'||p==='fin')renderSwapSelects();return}
+  if(el.dataset.f==='std'){S.work.std=el.value;setDirty(true);recalc();return}
   if(el.dataset.f){const p=el.dataset.f;S.work[p]=NUMP.has(p)?n(el.value):el.value;setDirty(true);recalc();return}
   if(el.dataset.c){S.work.carton=S.work.carton||{};const p=el.dataset.c;S.work.carton[p]=NUMP.has(p)?n(el.value):el.value;setDirty(true);recalc();return}
 });
-document.addEventListener('change',e=>{const el=e.target;if(el.tagName==='SELECT'&&(el.dataset.k||el.dataset.f||el.dataset.c))el.dispatchEvent(new Event('input',{bubbles:true}))});
+document.addEventListener('change',e=>{const el=e.target;if(el.tagName==='SELECT'&&(el.dataset.k||el.dataset.f||el.dataset.c)&&!el.closest('#tab-prices'))el.dispatchEvent(new Event('input',{bubbles:true}))});
 $('profitQuick').addEventListener('input',e=>{S.profitOverride=e.target.value===''?null:n(e.target.value)/100;recalc()});
 document.addEventListener('click',e=>{
   const el=e.target.closest('button');if(!el||!S.work)return;
   if(el.dataset.del){S.work[el.dataset.del].splice(+el.dataset.i,1);setDirty(true);renderTables();renderSwapSelects();recalc()}
   if(el.dataset.add){const k=el.dataset.add;S.work[k]=S.work[k]||[];
-    const blank={metal:{t:1,len:'',qty:1,mat:Object.keys(S.mats)[0]||''},labor:{name:'',rate:'',qty:1},hardware:{name:'',spec:'',qty:1,price:''},packaging:{name:'',spec:'',amount:''},outer:{name:'',qty:1,price:''}}[k];
+    const blank={metal:{t:1,len:'',qty:1,mat:Object.keys(S.mats)[0]||''},labor:{name:'',rate:'',qty:1},hardware:{name:'',spec:'',qty:1,price:''},packaging:{name:'',spec:'',amount:''},outer:{name:'',qty:1,price:''},fabric:{fab:Object.keys(S.cat.fabrics)[0]||'',qty:1,note:''},foam:{foam:Object.keys(S.cat.foams)[0]||'',L:'',W:'',H:'',qty:1},board:{board:'',L:'',W:'',qty:1,unitPrice:''}}[k];
     S.work[k].push(blank);setDirty(true);renderTables();recalc()}
 });
 $('swapMatBtn').addEventListener('click',()=>{const f=$('swapMatFrom').value,t=$('swapMatTo').value;if(!f||!t||f===t)return;
@@ -549,13 +644,13 @@ $('resetBtn').addEventListener('click',()=>{if(S.cur)loadModel(S.cur)});
 async function writeDoc(path,data){const [collection,id]=path.split('/');
   let error;try{({error}=await S.db.from('docs').upsert({collection,id,data,updated_at:new Date().toISOString()}))}catch(e){error=e}
   if(error){toast('保存失败：'+explainErr(error));return false}
-  const map={settings:null,materials:S.mats,finishes:S.fins,models:S.models}[collection];
+  const map=collection==='models'?S.models:S.cat[collection];
   if(collection==='settings')S.settings=Object.assign({},data);else if(map)map[id]=JSON.parse(JSON.stringify(data));
   return true}
 async function deleteDoc(path){const [collection,id]=path.split('/');
   let error;try{({error}=await S.db.from('docs').delete().eq('collection',collection).eq('id',id))}catch(e){error=e}
   if(error){toast('删除失败：'+explainErr(error));return false}
-  const map={materials:S.mats,finishes:S.fins,models:S.models}[collection];if(map)delete map[id];return true}
+  const map=collection==='models'?S.models:S.cat[collection];if(map)delete map[id];return true}
 async function saveModel(){if(!S.db||!S.cur)return false;const d=clone(S.work);d.updated=new Date().toISOString().slice(0,10);
   if(await writeDoc('models/'+S.cur,d)){setDirty(false);renderModelSel();toast('已保存');return true}return false}
 $('saveBtn').addEventListener('click',saveModel);
@@ -572,44 +667,46 @@ $('copyBtn').addEventListener('click',async()=>{const t=$('custText').textConten
   try{await navigator.clipboard.writeText(t);toast('已复制')}catch(e){const r=document.createRange();r.selectNodeContents($('custText'));const s=getSelection();s.removeAllRanges();s.addRange(r);toast('已选中，请手动复制')}});
 
 /* ---------- prices tab ---------- */
-function usageCount(field,id){return Object.values(S.models).filter(m=>(m.metal||[]).some(l=>l[field]===id)).length}
+const NUMF=new Set(['price','priceLong']);
+const CATS={
+  materials:{blank:{name:'新材料',price:0,note:''},dated:true,cols:[['name','text','w-l'],['price','num','w-s'],['note','text','w-l']],uses:(m,id)=>(m.metal||[]).some(l=>l.mat===id)},
+  finishes:{blank:{name:'新表面处理',basis:'area',price:0,priceLong:'',note:''},cols:[['name','text','w-l'],['basis','sel',()=>[['area','元/平方米（按面积）'],['kg','元/公斤（按重量）']]],['price','num','w-s'],['priceLong','num','w-s'],['note','text','w-l']],uses:(m,id)=>(m.metal||[]).some(l=>l.fin===id)},
+  fabrics:{blank:{name:'新面料',unit:'码',price:0,note:''},dated:true,cols:[['name','text','w-l'],['unit','sel',()=>[['码','码'],['米','米']]],['price','num','w-s'],['note','text','w-l']],uses:(m,id)=>(m.fabric||[]).some(l=>l.fab===id)},
+  foams:{blank:{name:'新海绵',price:0,uk:'',note:''},dated:true,cols:[['name','text','w-l'],['price','num','w-s'],['uk','sel',()=>[['','（不换）']].concat(sortByOrder(S.cw.foams).map(([k,o])=>[k,o.name]))],['note','text','w-l']],uses:(m,id)=>(m.foam||[]).some(l=>l.foam===id)},
+  boards:{blank:{name:'新木板',price:0,note:''},dated:true,cols:[['name','text','w-l'],['price','num','w-s'],['note','text','w-l']],uses:(m,id)=>(m.board||[]).some(l=>l.board===id)}
+};
+function usageCount(col,id){return Object.values(S.models).filter(m=>CATS[col].uses(m,id)).length}
+function isRef(col,id){return col==='foams'&&Object.entries(S.cw.foams).some(([k,f])=>k!==id&&f.uk===id)}
 function renderPrices(){
-  if(!S.pricesDirty){S.matsWork=clone(S.mats);S.finsWork=clone(S.fins)}
-  $('tMats').innerHTML=sortByOrder(S.matsWork).map(([id,m])=>`<tr>
-    <td><input class="w-l" data-mat="${esc(id)}" data-p="name" value="${esc(m.name)}"></td>
-    <td><input class="n w-s" type="number" step="any" data-mat="${esc(id)}" data-p="price" value="${esc(m.price)}"></td>
-    <td><input class="w-l" data-mat="${esc(id)}" data-p="note" value="${esc(m.note)}"></td>
-    <td class="n">${esc(m.updated||'')}</td><td class="n">${usageCount('mat',id)}</td>
-    <td>${usageCount('mat',id)?'':`<button class="x" type="button" data-delmat="${esc(id)}" aria-label="删除">×</button>`}</td></tr>`).join('');
-  $('tFins').innerHTML=sortByOrder(S.finsWork).map(([id,f])=>`<tr>
-    <td><input class="w-l" data-fin="${esc(id)}" data-p="name" value="${esc(f.name)}"></td>
-    <td><select data-fin="${esc(id)}" data-p="basis"><option value="area"${f.basis!=='kg'?' selected':''}>元/平方米（按面积）</option><option value="kg"${f.basis==='kg'?' selected':''}>元/公斤（按重量）</option></select></td>
-    <td><input class="n w-s" type="number" step="any" data-fin="${esc(id)}" data-p="price" value="${esc(f.price)}"></td>
-    <td><input class="w-l" data-fin="${esc(id)}" data-p="note" value="${esc(f.note)}"></td>
-    <td class="n">${usageCount('fin',id)}</td>
-    <td>${usageCount('fin',id)?'':`<button class="x" type="button" data-delfin="${esc(id)}" aria-label="删除">×</button>`}</td></tr>`).join('');
+  if(!S.pricesDirty||!S.cw){S.cw={};for(const k in CATS)S.cw[k]=clone(S.cat[k]||{});S.cdel={}}
+  for(const [col,def] of Object.entries(CATS)){
+    const ncol=def.cols.length+(def.dated?1:0)+2;
+    $('tc-'+col).innerHTML=sortByOrder(S.cw[col]).map(([id,o])=>{
+      const cells=def.cols.map(([p,t,w])=>{const a=`data-col="${col}" data-id="${esc(id)}" data-p="${p}"`;
+        if(t==='sel')return `<td><select ${a}>${w().map(([v,lab])=>`<option value="${esc(v)}"${String(o[p]??'')===v?' selected':''}>${esc(lab)}</option>`).join('')}</select></td>`;
+        return `<td><input class="${t==='num'?'n ':''}${w}" ${t==='num'?'type="number" step="any"':''} ${a} value="${esc(o[p]??'')}"></td>`}).join('');
+      const u=usageCount(col,id),locked=u||isRef(col,id);
+      return `<tr>${cells}${def.dated?`<td class="n">${esc(o.updated||'')}</td>`:''}<td class="n">${u}</td><td>${locked?'':`<button class="x" type="button" data-delcat="${col}" data-id="${esc(id)}" aria-label="删除">×</button>`}</td></tr>`}).join('')||
+      `<tr><td colspan="${ncol}" class="hint">还没有，点下面的按钮添加。</td></tr>`}
 }
 function setPricesDirty(v){S.pricesDirty=v;$('pricesDirty').hidden=!v;$('savePrices').disabled=!v||!S.canWrite}
-$('tab-prices').addEventListener('input',e=>{const el=e.target;const id=el.dataset.mat||el.dataset.fin;if(!id)return;
-  const obj=el.dataset.mat?S.matsWork:S.finsWork;const p=el.dataset.p;obj[id][p]=p==='price'?n(el.value):el.value;obj[id]._ch=true;setPricesDirty(true)});
-$('tab-prices').addEventListener('change',e=>{if(e.target.tagName==='SELECT')e.target.dispatchEvent(new Event('input',{bubbles:true}))});
-$('tab-prices').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
-  if(b.dataset.delmat){S.matsWork[b.dataset.delmat]._del=true;delete S.matsWork[b.dataset.delmat].order;S._delM=(S._delM||[]).concat(b.dataset.delmat);delete S.matsWork[b.dataset.delmat];setPricesDirty(true);renderPricesKeep()}
-  if(b.dataset.delfin){S._delF=(S._delF||[]).concat(b.dataset.delfin);delete S.finsWork[b.dataset.delfin];setPricesDirty(true);renderPricesKeep()}});
 function renderPricesKeep(){const d=S.pricesDirty;S.pricesDirty=true;renderPrices();S.pricesDirty=d}
-$('addMat').addEventListener('click',()=>{const id='m'+Date.now().toString(36);S.matsWork[id]={name:'新材料',price:0,note:'',order:99,_ch:true};setPricesDirty(true);renderPricesKeep()});
-$('addFin').addEventListener('click',()=>{const id='f'+Date.now().toString(36);S.finsWork[id]={name:'新表面处理',basis:'area',price:0,note:'',order:99,_ch:true};setPricesDirty(true);renderPricesKeep()});
+$('tab-prices').addEventListener('input',e=>{const el=e.target,col=el.dataset.col,id=el.dataset.id;if(!col)return;
+  const o=S.cw[col][id],p=el.dataset.p;o[p]=NUMF.has(p)?(el.value===''?'':n(el.value)):el.value;o._ch=true;setPricesDirty(true)});
+$('tab-prices').addEventListener('change',e=>{if(e.target.tagName==='SELECT'&&e.target.dataset.col)e.target.dispatchEvent(new Event('input',{bubbles:true}))});
+$('tab-prices').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.delcat){const col=b.dataset.delcat,id=b.dataset.id;(S.cdel[col]=S.cdel[col]||[]).push(id);delete S.cw[col][id];setPricesDirty(true);renderPricesKeep()}
+  if(b.dataset.addcat){const col=b.dataset.addcat,id=col.slice(0,2)+Date.now().toString(36);S.cw[col][id]=Object.assign(clone(CATS[col].blank),{order:99,_ch:true});setPricesDirty(true);renderPricesKeep()}});
 async function savePricesAll(){if(!S.db)return false;const today=new Date().toISOString().slice(0,10);let ok=true;
-  for(const [id,m] of Object.entries(S.matsWork)){if(!m._ch)continue;const d=Object.assign({},m);delete d._ch;
-    if(!S.mats[id]||S.mats[id].price!==d.price)d.updated=today;ok=await writeDoc('materials/'+id,d)&&ok}
-  for(const [id,f] of Object.entries(S.finsWork)){if(!f._ch)continue;const d=Object.assign({},f);delete d._ch;ok=await writeDoc('finishes/'+id,d)&&ok}
-  for(const id of S._delM||[]){ok=await deleteDoc('materials/'+id)&&ok}
-  for(const id of S._delF||[]){ok=await deleteDoc('finishes/'+id)&&ok}
-  S._delM=[];S._delF=[];if(ok){setPricesDirty(false);renderPrices();if(S.work){renderTables();renderSwapSelects();recalc()}toast('价格表已保存，所有款式已按新价格计算')}return ok}
+  for(const col in CATS){
+    for(const [id,o] of Object.entries(S.cw[col])){if(!o._ch)continue;const d=Object.assign({},o);delete d._ch;
+      if(CATS[col].dated&&(!S.cat[col][id]||S.cat[col][id].price!==d.price))d.updated=today;ok=await writeDoc(col+'/'+id,d)&&ok}
+    for(const id of S.cdel[col]||[])ok=await deleteDoc(col+'/'+id)&&ok}
+  S.cdel={};if(ok){setPricesDirty(false);renderPrices();if(S.work){renderTables();renderSwapSelects();recalc()}toast('价格表已保存，所有款式已按新价格计算')}return ok}
 $('savePrices').addEventListener('click',savePricesAll);
 
 /* ---------- settings tab ---------- */
-function renderSettings(){if(!S.settings)return;if(!S.setDirty)S.setWork=clone(S.settings);
+function renderSettings(){if(!S.settings)return;if(!S.setDirty){S.setWork=clone(S.settings);if(S.setWork.frYard==null)S.setWork.frYard=12}
   document.querySelectorAll('[data-s]').forEach(el=>{const v=S.setWork[el.dataset.s];el.value=el.dataset.pct?+(n(v)*100).toFixed(4):(v??'')})}
 $('setForm').addEventListener('input',e=>{const el=e.target;if(!el.dataset.s)return;S.setWork[el.dataset.s]=el.dataset.pct?n(el.value)/100:n(el.value);S.setDirty=true;$('setDirty').hidden=false;$('saveSettings').disabled=!S.canWrite});
 async function saveSettingsAll(){if(await writeDoc('settings/main',S.setWork)){S.setDirty=false;$('setDirty').hidden=true;$('saveSettings').disabled=true;recalc();toast('参数已保存');return true}return false}
@@ -630,9 +727,9 @@ async function loadAll(){
   try{({data,error}=await S.db.from('docs').select('collection,id,data'))}catch(e){error=e}
   if(error){const b=$('dbNotice');b.textContent='读取数据失败：'+explainErr(error);b.hidden=false;return}
   $('dbNotice').hidden=true;
-  const g={settings:{},materials:{},finishes:{},models:{}};
+  const g={settings:{},materials:{},finishes:{},fabrics:{},foams:{},boards:{},models:{}};
   for(const r of data||[]){if(g[r.collection])g[r.collection][r.id]=Object.assign({},r.data)}
-  S.settings=g.settings.main||null;S.mats=g.materials;S.fins=g.finishes;S.models=g.models;
+  S.settings=g.settings.main||null;S.cat={materials:g.materials,finishes:g.finishes,fabrics:g.fabrics,foams:g.foams,boards:g.boards};S.mats=S.cat.materials;S.fins=S.cat.finishes;S.models=g.models;
   afterLoad()}
 function afterLoad(){
   if(S.cur&&!S.models[S.cur]){S.cur=null;S.work=null}
