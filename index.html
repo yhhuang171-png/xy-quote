@@ -148,6 +148,7 @@ h1.page{font-size:20px;margin:20px 0 4px}
       <span id="dirty" class="pill" hidden>有未保存的修改</span>
       <button class="btn primary" id="saveBtn" type="button" disabled>保存</button>
       <button class="btn" id="cloneBtn" type="button">另存为新款</button>
+      <button class="btn" id="estBtn" type="button">新建快速估价</button>
       <button class="btn" id="resetBtn" type="button" disabled>放弃修改</button>
     </div>
     <div id="cloneForm" class="inline-form" hidden>
@@ -158,9 +159,19 @@ h1.page{font-size:20px;margin:20px 0 4px}
       <button class="btn" id="cloneCancel" type="button">取消</button>
     </div>
 
+    <div id="estForm" class="inline-form" hidden>
+      <label>参考哪个老款<select id="estRef" class="w-l"></select></label>
+      <label>新型号<input id="estCode" class="w-m"></label>
+      <label>名称<input id="estName" class="w-m"></label>
+      <button class="btn primary" id="estOk" type="button">开始估价</button>
+      <button class="btn" id="estCancel" type="button">取消</button>
+      <div class="hint" style="flex-basis:100%">会从参考款复制人工、五金、包材、纸箱和每箱件数。铁管、软包、外配件是空的，按新款重新填。</div>
+    </div>
+
     <div id="quoteEmpty" class="empty" hidden>款式库里还没有产品。连接成功后，价格表和款式会出现在这里。</div>
 
     <div id="quoteBody" hidden>
+      <div id="estNotice" class="notice" hidden>这是快速估价：铁管按米估，结果是大概的。最后报价请妈妈确认。以后拆细了用料，可以在「基本信息」里取消「快速估价」标记。</div>
       <div class="summary">
         <div class="card">
           <div class="label">① 产品成本 · 人民币 · 每件（含管销、不良，不含运费和利润）</div>
@@ -212,6 +223,7 @@ h1.page{font-size:20px;margin:20px 0 4px}
             <label>每箱件数（每款不同）<input data-f="pcsPerCtn" class="n" type="number" step="1"></label>
             <label>出货港<select data-f="port"><option value="YT">盐田 YT</option><option value="HK">香港 HK</option></select></label>
             <label>备注<input data-f="notes"></label>
+            <label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="estChk"> 快速估价（列表里显示 [估]）</label>
           </div>
           <div class="label" style="margin-top:14px">纸箱</div>
           <div class="form-grid" style="margin-top:6px">
@@ -223,6 +235,18 @@ h1.page{font-size:20px;margin:20px 0 4px}
             <label>单价 元/千平方英寸<input data-c="price" class="n" type="number" step="any"></label>
           </div>
           <div class="hint" id="cartonHint"></div>
+        </div>
+      </details>
+
+      <details class="sec" open id="estSec">
+        <summary><span class="t">铁管按米估</span><span class="num" id="sEst"></span></summary>
+        <div class="body">
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>管型</th><th>规格1</th><th>规格2</th><th>厚度</th><th>大概几米</th><th>材料</th><th>表面处理</th><th>单根超过 1 米</th><th>重量kg</th><th>材料费</th><th>表面费</th><th>备注</th><th></th></tr></thead>
+            <tbody id="tEst"></tbody>
+          </table></div>
+          <button class="btn addrow" type="button" data-add="metalEst">＋ 加一种管子</button>
+          <div class="hint">按尺寸估出这种管子一共大概用几米。规格填法跟下面「黑身材料」一样：圆管规格2 填外径；方管规格1 × 规格2 填两边。电镀费按「单根超过 1 米」选的档位算。</div>
         </div>
       </details>
 
@@ -428,6 +452,11 @@ function compute(m,mats,fins,s,cat){
   let fc=0,ar=0;const f=fins[l.fin];
   if(f){if(f.basis==='kg'){fc=w*n(f.price);r.kgFin+=fc}else{ar=area(l);fc=ar*finPrice(f,l);r.areaFin+=fc}}
   r.metal+=c;r.weight+=w;r.lines.push({w,c,ar,fc})}
+ r.estLines=[];
+ for(const e of m.metalEst||[]){const l={t:e.t,a:e.a,b:e.b,th:e.th,len:n(e.meters)*1000,qty:1};
+  const w=weight(l),c=w*(mats[e.mat]?n(mats[e.mat].price):0);let fc=0;const f=fins[e.fin];
+  if(f){if(f.basis==='kg'){fc=w*n(f.price);r.kgFin+=fc}else{const fp=(e.long&&n(f.priceLong)>0)?n(f.priceLong):n(f.price);fc=area(l)*fp;r.areaFin+=fc}}
+  r.metal+=c;r.weight+=w;r.estLines.push({w,c,fc})}
  for(const l of m.labor||[])r.labor+=n(l.rate)*n(l.qty);
  for(const l of m.hardware||[])r.hw+=n(l.qty)*n(l.price);
  let p=0;for(const l of m.packaging||[])p+=n(l.amount);r.packRaw=p;r.pack=p*(1+n(s.packRise));
@@ -467,7 +496,7 @@ document.querySelectorAll('nav.tabs button').forEach(b=>b.addEventListener('clic
 }));
 
 /* ---------- model selection ---------- */
-function modelLabel(m){return [m.code,m.name,m.variant].filter(Boolean).join(' · ')}
+function modelLabel(m){return (m.est?'[估] ':'')+[m.code,m.name,m.variant].filter(Boolean).join(' · ')}
 function renderModelSel(){
   const sel=$('modelSel');const ids=Object.keys(S.models).sort((a,b)=>modelLabel(S.models[a]).localeCompare(modelLabel(S.models[b]),'zh'));
   sel.innerHTML=ids.map(id=>`<option value="${esc(id)}">${esc(modelLabel(S.models[id]))}</option>`).join('');
@@ -509,6 +538,19 @@ function renderTables(){
     <td class="n" id="mw${i}"></td><td class="n" id="mc${i}"></td><td class="n" id="mf${i}"></td>
     <td><input class="w-m" data-k="metal" data-i="${i}" data-p="note" value="${esc(l.note??'')}"></td>
     <td><button class="x" type="button" data-del="metal" data-i="${i}" aria-label="删除这一行">×</button></td></tr>`).join('');
+  $('tEst').innerHTML=(w.metalEst||[]).map((l,i)=>`<tr>
+    <td><select data-k="metalEst" data-i="${i}" data-p="t" class="w-s">${Object.entries(TYPES).map(([k,v])=>`<option value="${k}"${+l.t===+k?' selected':''}>${v}</option>`).join('')}</select></td>
+    <td><input class="n w-xs" type="number" step="any" data-k="metalEst" data-i="${i}" data-p="a" value="${esc(l.a??'')}"></td>
+    <td><input class="n w-xs" type="number" step="any" data-k="metalEst" data-i="${i}" data-p="b" value="${esc(l.b??'')}"></td>
+    <td><input class="n w-xs" type="number" step="any" data-k="metalEst" data-i="${i}" data-p="th" value="${esc(l.th??'')}"></td>
+    <td><input class="n w-xs" type="number" step="any" data-k="metalEst" data-i="${i}" data-p="meters" value="${esc(l.meters??'')}"></td>
+    <td><select data-k="metalEst" data-i="${i}" data-p="mat" class="w-l">${opts(S.mats,l.mat,true)}</select></td>
+    <td><select data-k="metalEst" data-i="${i}" data-p="fin" class="w-m">${opts(S.fins,l.fin,true)}</select></td>
+    <td style="text-align:center"><input type="checkbox" data-k="metalEst" data-i="${i}" data-p="long"${l.long?' checked':''} aria-label="单根超过 1 米"></td>
+    <td class="n" id="ew${i}"></td><td class="n" id="ec${i}"></td><td class="n" id="ef${i}"></td>
+    <td><input class="w-m" data-k="metalEst" data-i="${i}" data-p="note" value="${esc(l.note??'')}"></td>
+    <td><button class="x" type="button" data-del="metalEst" data-i="${i}" aria-label="删除这一行">×</button></td></tr>`).join('');
+  $('estSec').hidden=!(w.est||(w.metalEst||[]).length);$('estNotice').hidden=!w.est;$('estChk').checked=!!w.est;
   $('tLabor').innerHTML=(w.labor||[]).map((l,i)=>`<tr>
     <td><input class="w-l" data-k="labor" data-i="${i}" data-p="name" value="${esc(l.name)}"></td>
     <td><input class="n w-s" type="number" step="any" data-k="labor" data-i="${i}" data-p="rate" value="${esc(l.rate)}"></td>
@@ -557,7 +599,7 @@ function renderTables(){
   document.querySelectorAll('[data-c]').forEach(el=>el.value=(w.carton||{})[el.dataset.c]??'');
 }
 function renderSwapSelects(){
-  const used=new Set((S.work?.metal||[]).map(l=>l.mat)),usedF=new Set((S.work?.metal||[]).map(l=>l.fin).filter(Boolean));
+  const all=(S.work?.metal||[]).concat(S.work?.metalEst||[]);const used=new Set(all.map(l=>l.mat)),usedF=new Set(all.map(l=>l.fin).filter(Boolean));
   const only=(obj,set)=>Object.fromEntries(Object.entries(obj).filter(([k])=>set.has(k)));
   $('swapMatFrom').innerHTML=opts(only(S.mats,used),null);$('swapMatTo').innerHTML=opts(S.mats,null);
   $('swapFinFrom').innerHTML=opts(only(S.fins,usedF),null);$('swapFinTo').innerHTML=opts(S.fins,null,true);
@@ -565,6 +607,8 @@ function renderSwapSelects(){
 function recalc(){
   if(!S.work||!S.settings)return;
   const s=effSettings(),r=compute(S.work,S.mats,S.fins,s,S.cat),w=S.work;
+  r.estLines.forEach((x,i)=>{const a=$('ew'+i);if(a){a.textContent=fmt(x.w,3);$('ec'+i).textContent=fmt(x.c);$('ef'+i).textContent=x.fc?fmt(x.fc):''}});
+  $('sEst').textContent=r.estLines.length?`材料 ¥${fmt(r.estLines.reduce((a,x)=>a+x.c,0))} · 表面 ¥${fmt(r.estLines.reduce((a,x)=>a+x.fc,0))}`:'';
   r.lines.forEach((x,i)=>{const a=$('mw'+i);if(a){a.textContent=fmt(x.w,3);$('mc'+i).textContent=fmt(x.c);$('mf'+i).textContent=x.fc?fmt(x.fc):''}});
   (w.labor||[]).forEach((l,i)=>{const e=$('la'+i);if(e)e.textContent=fmt(n(l.rate)*n(l.qty))});
   (w.hardware||[]).forEach((l,i)=>{const e=$('hw'+i);if(e)e.textContent=fmt(n(l.qty)*n(l.price))});
@@ -614,10 +658,11 @@ function recalc(){
 function renderAll(){renderModelSel();if(!S.work){$('quoteBody').hidden=true;return}$('quoteBody').hidden=false;renderTables();renderSwapSelects();recalc()}
 
 /* ---------- editing ---------- */
-const NUMP=new Set(['t','a','b','th','len','qty','rate','price','amount','pcsPerCtn','L','W','H','type','unitPrice']);
+const NUMP=new Set(['t','a','b','th','len','qty','rate','price','amount','pcsPerCtn','L','W','H','type','unitPrice','meters']);
 document.addEventListener('input',e=>{
   const el=e.target;if(!S.work)return;
-  if(el.dataset.k){const row=S.work[el.dataset.k][+el.dataset.i],p=el.dataset.p;row[p]=NUMP.has(p)?(el.value===''?'':n(el.value)):el.value;
+  if(el.id==='estChk'){S.work.est=el.checked;setDirty(true);renderAll();return}
+  if(el.dataset.k){const row=S.work[el.dataset.k][+el.dataset.i],p=el.dataset.p;row[p]=el.type==='checkbox'?el.checked:NUMP.has(p)?(el.value===''?'':n(el.value)):el.value;
     if(p==='fin'&&!el.value)delete row.fin;setDirty(true);recalc();if(p==='mat'||p==='fin')renderSwapSelects();return}
   if(el.dataset.f==='std'){S.work.std=el.value;setDirty(true);recalc();return}
   if(el.dataset.f){const p=el.dataset.f;S.work[p]=NUMP.has(p)?n(el.value):el.value;setDirty(true);recalc();return}
@@ -629,15 +674,15 @@ document.addEventListener('click',e=>{
   const el=e.target.closest('button');if(!el||!S.work)return;
   if(el.dataset.del){S.work[el.dataset.del].splice(+el.dataset.i,1);setDirty(true);renderTables();renderSwapSelects();recalc()}
   if(el.dataset.add){const k=el.dataset.add;S.work[k]=S.work[k]||[];
-    const blank={metal:{t:1,len:'',qty:1,mat:Object.keys(S.mats)[0]||''},labor:{name:'',rate:'',qty:1},hardware:{name:'',spec:'',qty:1,price:''},packaging:{name:'',spec:'',amount:''},outer:{name:'',qty:1,price:''},fabric:{fab:Object.keys(S.cat.fabrics)[0]||'',qty:1,note:''},foam:{foam:Object.keys(S.cat.foams)[0]||'',L:'',W:'',H:'',qty:1},board:{board:'',L:'',W:'',qty:1,unitPrice:''}}[k];
+    const blank={metal:{t:1,len:'',qty:1,mat:Object.keys(S.mats)[0]||''},labor:{name:'',rate:'',qty:1},hardware:{name:'',spec:'',qty:1,price:''},packaging:{name:'',spec:'',amount:''},outer:{name:'',qty:1,price:''},metalEst:{t:2,a:'',b:'',th:'',meters:'',mat:Object.keys(S.mats)[0]||'',fin:'',long:false,note:''},fabric:{fab:Object.keys(S.cat.fabrics)[0]||'',qty:1,note:''},foam:{foam:Object.keys(S.cat.foams)[0]||'',L:'',W:'',H:'',qty:1},board:{board:'',L:'',W:'',qty:1,unitPrice:''}}[k];
     S.work[k].push(blank);setDirty(true);renderTables();recalc()}
 });
 $('swapMatBtn').addEventListener('click',()=>{const f=$('swapMatFrom').value,t=$('swapMatTo').value;if(!f||!t||f===t)return;
-  let c=0;S.work.metal.forEach(l=>{if(l.mat===f){l.mat=t;c++}});setDirty(true);renderTables();renderSwapSelects();recalc();toast(`已替换 ${c} 行材料`)});
+  let c=0;(S.work.metal||[]).concat(S.work.metalEst||[]).forEach(l=>{if(l.mat===f){l.mat=t;c++}});setDirty(true);renderTables();renderSwapSelects();recalc();toast(`已替换 ${c} 行材料`)});
 $('swapFinBtn').addEventListener('click',()=>{const f=$('swapFinFrom').value,t=$('swapFinTo').value;if(!f||f===t)return;
-  let c=0;S.work.metal.forEach(l=>{if(l.fin===f){if(t)l.fin=t;else delete l.fin;c++}});setDirty(true);renderTables();renderSwapSelects();recalc();toast(`已替换 ${c} 行表面处理`)});
+  let c=0;(S.work.metal||[]).concat(S.work.metalEst||[]).forEach(l=>{if(l.fin===f){if(t)l.fin=t;else delete l.fin;c++}});setDirty(true);renderTables();renderSwapSelects();recalc();toast(`已替换 ${c} 行表面处理`)});
 $('scaleBtn').addEventListener('click',()=>{const p=n($('scalePct').value);if(!p)return;
-  S.work.metal.forEach(l=>{if(l.len!=='')l.len=Math.round(n(l.len)*(1+p/100))});$('scalePct').value=0;setDirty(true);renderTables();recalc();toast(`长度已调整 ${p}%`)});
+  (S.work.metal||[]).forEach(l=>{if(l.len!=='')l.len=Math.round(n(l.len)*(1+p/100))});(S.work.metalEst||[]).forEach(l=>{if(l.meters!=='')l.meters=+(n(l.meters)*(1+p/100)).toFixed(2)});$('scalePct').value=0;setDirty(true);renderTables();recalc();toast(`长度已调整 ${p}%`)});
 $('resetBtn').addEventListener('click',()=>{if(S.cur)loadModel(S.cur)});
 
 /* ---------- save / clone / delete ---------- */
@@ -656,6 +701,20 @@ async function saveModel(){if(!S.db||!S.cur)return false;const d=clone(S.work);d
 $('saveBtn').addEventListener('click',saveModel);
 $('cloneBtn').addEventListener('click',()=>{const w=S.work||{};$('newCode').value=w.code||'';$('newName').value=w.name||'';$('newVariant').value=(w.variant||'')+'（改款）';$('cloneForm').hidden=false;$('newCode').focus()});
 $('cloneCancel').addEventListener('click',()=>$('cloneForm').hidden=true);
+$('estBtn').addEventListener('click',()=>{const ids=Object.keys(S.models).sort((a,b)=>modelLabel(S.models[a]).localeCompare(modelLabel(S.models[b]),'zh'));
+  $('estRef').innerHTML=ids.map(id=>`<option value="${esc(id)}"${id===S.cur?' selected':''}>${esc(modelLabel(S.models[id]))}</option>`).join('');
+  $('estCode').value='';$('estName').value='';$('estForm').hidden=false;$('estCode').focus()});
+$('estCancel').addEventListener('click',()=>$('estForm').hidden=true);
+$('estOk').addEventListener('click',async()=>{if(!S.db)return;const code=$('estCode').value.trim();if(!code){toast('请填写型号');return}
+  const ref=S.models[$('estRef').value];if(!ref){toast('请选一个参考老款');return}
+  const go=async()=>{const d={code,name:$('estName').value.trim(),nameEn:'',variant:'快速估价',size:'',est:true,std:'US',port:ref.port||'YT',
+    pcsPerCtn:ref.pcsPerCtn,carton:clone(ref.carton||{}),labor:clone(ref.labor||[]),hardware:clone(ref.hardware||[]),packaging:clone(ref.packaging||[]),
+    metal:[],metalEst:[{t:2,a:'',b:'',th:'',meters:'',mat:Object.keys(S.mats)[0]||'',fin:'',long:false,note:''}],outer:[],fabric:[],foam:[],board:[],
+    notes:`快速估价，参考 ${modelLabel(ref)}`,updated:new Date().toISOString().slice(0,10)};
+    const id=('est-'+code+'-'+Date.now().toString(36)).replace(/[^A-Za-z0-9_\-.~:@+]/g,'');
+    if(await writeDoc('models/'+id,d)){$('estForm').hidden=true;S.cur=id;S.work=clone(d);setDirty(false);S.profitOverride=null;renderAll();toast('已新建快速估价，请填铁管和软包')}};
+  if(!S.dirty){go();return}
+  askLeave({msg:`「${modelLabel(S.models[S.cur]||S.work)}」有未保存的修改`,save:'保存后新建',discard:'不保存，直接新建',onSave:async()=>{if(await saveModel())await go()},onDiscard:go})});
 $('cloneOk').addEventListener('click',async()=>{if(!S.db)return;const code=$('newCode').value.trim();if(!code){toast('请填写型号');return}
   const d=clone(S.work);d.code=code;d.name=$('newName').value.trim();d.variant=$('newVariant').value.trim();d.updated=new Date().toISOString().slice(0,10);
   const id=(code+'-'+Date.now().toString(36)).replace(/[^A-Za-z0-9_\-.~:@+]/g,'');
@@ -669,8 +728,8 @@ $('copyBtn').addEventListener('click',async()=>{const t=$('custText').textConten
 /* ---------- prices tab ---------- */
 const NUMF=new Set(['price','priceLong']);
 const CATS={
-  materials:{blank:{name:'新材料',price:0,note:''},dated:true,cols:[['name','text','w-l'],['price','num','w-s'],['note','text','w-l']],uses:(m,id)=>(m.metal||[]).some(l=>l.mat===id)},
-  finishes:{blank:{name:'新表面处理',basis:'area',price:0,priceLong:'',note:''},cols:[['name','text','w-l'],['basis','sel',()=>[['area','元/平方米（按面积）'],['kg','元/公斤（按重量）']]],['price','num','w-s'],['priceLong','num','w-s'],['note','text','w-l']],uses:(m,id)=>(m.metal||[]).some(l=>l.fin===id)},
+  materials:{blank:{name:'新材料',price:0,note:''},dated:true,cols:[['name','text','w-l'],['price','num','w-s'],['note','text','w-l']],uses:(m,id)=>(m.metal||[]).concat(m.metalEst||[]).some(l=>l.mat===id)},
+  finishes:{blank:{name:'新表面处理',basis:'area',price:0,priceLong:'',note:''},cols:[['name','text','w-l'],['basis','sel',()=>[['area','元/平方米（按面积）'],['kg','元/公斤（按重量）']]],['price','num','w-s'],['priceLong','num','w-s'],['note','text','w-l']],uses:(m,id)=>(m.metal||[]).concat(m.metalEst||[]).some(l=>l.fin===id)},
   fabrics:{blank:{name:'新面料',unit:'码',price:0,note:''},dated:true,cols:[['name','text','w-l'],['unit','sel',()=>[['码','码'],['米','米']]],['price','num','w-s'],['note','text','w-l']],uses:(m,id)=>(m.fabric||[]).some(l=>l.fab===id)},
   foams:{blank:{name:'新海绵',price:0,uk:'',note:''},dated:true,cols:[['name','text','w-l'],['price','num','w-s'],['uk','sel',()=>[['','（不换）']].concat(sortByOrder(S.cw.foams).map(([k,o])=>[k,o.name]))],['note','text','w-l']],uses:(m,id)=>(m.foam||[]).some(l=>l.foam===id)},
   boards:{blank:{name:'新木板',price:0,note:''},dated:true,cols:[['name','text','w-l'],['price','num','w-s'],['note','text','w-l']],uses:(m,id)=>(m.board||[]).some(l=>l.board===id)}
