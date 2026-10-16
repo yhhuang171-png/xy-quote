@@ -61,6 +61,11 @@ button.btn:disabled{opacity:.45;cursor:default}
 .step.total b{color:var(--brass);font-size:22px}
 .mrg{display:inline-flex;align-items:center;gap:4px;margin-left:8px;color:var(--muted);font-size:13px}
 .mrg input{width:72px;padding:3px 6px}
+.range{margin-top:14px;padding:12px;border-radius:8px;background:var(--steel-soft)}
+.range-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;padding:4px 0;font-size:14px}
+.range-row b{font-family:var(--mono);font-weight:600}
+.range-row.big b{font-size:20px;color:var(--steel)}
+.range-row.floor{color:var(--warn)}
 .margin-note{margin-top:14px;padding:10px 12px;border-radius:8px;background:var(--brass-soft);font-size:14px}
 .bars{display:flex;flex-direction:column;gap:7px}
 .bars .row{display:grid;grid-template-columns:72px minmax(0,1fr) 70px;gap:8px;align-items:center;font-size:13px}
@@ -89,6 +94,7 @@ td input.n{text-align:right}
 td.n{text-align:right;white-space:nowrap}
 td select{padding:4px}
 .w-xs{width:56px}.w-s{width:72px}.w-m{width:110px}.w-l{min-width:140px}
+.warn{color:var(--warn);font-size:11px;white-space:nowrap}
 .x{background:none;border:0;color:var(--muted);cursor:pointer;font-size:16px;padding:2px 6px}
 .addrow{margin-top:8px}
 .hint{font-size:12px;color:var(--muted);margin-top:6px}
@@ -118,6 +124,7 @@ h1.page{font-size:20px;margin:20px 0 4px}
       <nav class="tabs" aria-label="页面">
         <button type="button" data-tab="quote" aria-pressed="true">报价</button>
         <button type="button" data-tab="prices" aria-pressed="false">价格表</button>
+        <button type="button" data-tab="records" aria-pressed="false">报价记录</button>
         <button type="button" data-tab="settings" aria-pressed="false">参数</button>
       </nav>
       <span class="who" id="who"></span>
@@ -160,12 +167,13 @@ h1.page{font-size:20px;margin:20px 0 4px}
     </div>
 
     <div id="estForm" class="inline-form" hidden>
+      <label>椅型<select id="estType" class="w-m"><option value="">不用模板（自己填）</option><option value="dining4">四脚餐椅</option><option value="sled">弓形餐椅</option><option value="bar4">四脚吧凳（带脚踏圈）</option></select></label>
       <label>参考哪个老款<select id="estRef" class="w-l"></select></label>
       <label>新型号<input id="estCode" class="w-m"></label>
       <label>名称<input id="estName" class="w-m"></label>
       <button class="btn primary" id="estOk" type="button">开始估价</button>
       <button class="btn" id="estCancel" type="button">取消</button>
-      <div class="hint" style="flex-basis:100%">会从参考款复制人工、五金、包材、纸箱和每箱件数。铁管、软包、外配件是空的，按新款重新填。</div>
+      <div class="hint" style="flex-basis:100%">会从参考款复制人工、五金、包材、纸箱和每箱件数。选了椅型，会按默认尺寸先算出铁管、面料、海绵，再按客户的尺寸改。转椅请选「不用模板」，参考一个转椅老款。</div>
     </div>
 
     <div id="quoteEmpty" class="empty" hidden>款式库里还没有产品。连接成功后，价格表和款式会出现在这里。</div>
@@ -182,6 +190,13 @@ h1.page{font-size:20px;margin:20px 0 4px}
             <div class="step"><span>③ 利润 <label class="mrg">毛利率 <input id="profitQuick" class="n" type="number" step="any" aria-label="毛利率"> %</label></span><b id="kProfit">—</b></div>
             <div class="step sub"><span>人民币报价</span><b id="kPrice">—</b></div>
             <div class="step total"><span id="kUsdLabel">④ 美金报价</span><b id="kUsd">—</b></div>
+          </div>
+          <div class="range" id="rangeBox">
+            <div class="label" id="rangeLabel">价格区间</div>
+            <div class="range-row"><span>成本区间</span><b id="rCost">—</b></div>
+            <div class="range-row big"><span>给客户的美金报价区间</span><b id="rUsd">—</b></div>
+            <div class="range-row floor"><span>最低可接受价（只给妈妈看）</span><b id="rFloor">—</b></div>
+            <div class="hint" id="rHint"></div>
           </div>
           <div class="kv">
             <div><span class="label">每箱件数 / 每箱材积</span><b id="kPack">—</b></div>
@@ -238,11 +253,21 @@ h1.page{font-size:20px;margin:20px 0 4px}
         </div>
       </details>
 
+      <details class="sec" open id="tplSec" hidden>
+        <summary><span class="t" id="tplTitle">椅型模板</span><span class="num">按尺寸估用料</span></summary>
+        <div class="body">
+          <div class="notice" style="margin-top:0">⚠ 待核对：下面的公式是按椅子几何关系推算的，还没有用工厂的老款核对过。算出来的管子米数、面料码数、海绵尺寸都要妈妈看一眼再用。</div>
+          <div class="form-grid" id="tplForm" style="margin-top:12px"></div>
+          <div class="actions"><button class="btn primary" id="tplGo" type="button">按尺寸算用料</button></div>
+          <div class="hint">点「按尺寸算用料」会<b>重新生成</b>下面「铁管按米估」和「软包」里的面料、海绵（木板不动）。之前手改过的这几行会被覆盖。算完后每一行都可以再改。</div>
+        </div>
+      </details>
+
       <details class="sec" open id="estSec">
         <summary><span class="t">铁管按米估</span><span class="num" id="sEst"></span></summary>
         <div class="body">
           <div class="tbl-wrap"><table>
-            <thead><tr><th>管型</th><th>规格1</th><th>规格2</th><th>厚度</th><th>大概几米</th><th>材料</th><th>表面处理</th><th>单根超过 1 米</th><th>重量kg</th><th>材料费</th><th>表面费</th><th>备注</th><th></th></tr></thead>
+            <thead><tr><th>管型</th><th>常用规格</th><th>规格1</th><th>规格2</th><th>厚度</th><th>大概几米</th><th>材料</th><th>表面处理</th><th>单根超过 1 米</th><th>重量kg</th><th>材料费</th><th>表面费</th><th>备注</th><th></th></tr></thead>
             <tbody id="tEst"></tbody>
           </table></div>
           <button class="btn addrow" type="button" data-add="metalEst">＋ 加一种管子</button>
@@ -254,7 +279,7 @@ h1.page{font-size:20px;margin:20px 0 4px}
         <summary><span class="t">黑身材料（管材、板材）</span><span class="num" id="sMetal"></span></summary>
         <div class="body">
           <div class="tbl-wrap"><table>
-            <thead><tr><th>类别</th><th>规格1</th><th>规格2</th><th>厚度/棒径</th><th>长度mm</th><th>数量</th><th>材料</th><th>表面处理</th><th>重量kg</th><th>材料费</th><th>表面费</th><th>备注</th><th></th></tr></thead>
+            <thead><tr><th>类别</th><th>常用规格</th><th>规格1</th><th>规格2</th><th>厚度/棒径</th><th>长度mm</th><th>数量</th><th>材料</th><th>表面处理</th><th>重量kg</th><th>材料费</th><th>表面费</th><th>备注</th><th></th></tr></thead>
             <tbody id="tMetal"></tbody>
           </table></div>
           <button class="btn addrow" type="button" data-add="metal">＋ 加一行</button>
@@ -322,7 +347,15 @@ h1.page{font-size:20px;margin:20px 0 4px}
         <summary><span class="t">给客户的报价文字</span></summary>
         <div class="body">
           <div class="copybox" id="custText"></div>
-          <div class="actions"><button class="btn" id="copyBtn" type="button">复制</button></div>
+          <div class="actions"><button class="btn" id="copyBtn" type="button">复制</button><button class="btn primary" id="recBtn" type="button">记录这次报价</button></div>
+          <div id="recForm" class="inline-form" hidden>
+            <label>客户<input id="recClient" class="w-m"></label>
+            <label>报给客户的美金单价<input id="recUsd" class="n w-s" type="number" step="any"></label>
+            <label>备注<input id="recNote" class="w-l"></label>
+            <button class="btn primary" id="recOk" type="button">保存记录</button>
+            <button class="btn" id="recCancel" type="button">取消</button>
+            <div class="hint" style="flex-basis:100%">会存下这一刻的成本、区间、毛利率和汇率。以后在「报价记录」页补填是否成交、实际成本。</div>
+          </div>
         </div>
       </details>
 
@@ -368,6 +401,15 @@ h1.page{font-size:20px;margin:20px 0 4px}
     <div class="actions"><button class="btn primary" id="savePrices" type="button" disabled>保存价格表</button><span id="pricesDirty" class="pill" hidden>有未保存的修改</span></div>
   </section>
 
+  <section id="tab-records" hidden>
+    <h1 class="page">报价记录</h1>
+    <div class="hint">每次报价点「记录这次报价」就会出现在这里。成交后做完大货，把实际成本（人民币/件）补上，就能看出报价助手一般估高还是估低。</div>
+    <div class="kv card" id="recStats" style="margin-top:12px"></div>
+    <div class="card" style="margin-top:12px">
+      <div class="tbl-wrap"><table><thead><tr><th>日期</th><th>客户</th><th>款式</th><th>估价方式</th><th>成本（中间值）</th><th>报价区间 $</th><th>报给客户 $</th><th>结果</th><th>实际成本 ¥/件</th><th>备注</th><th></th></tr></thead><tbody id="tRec"></tbody></table></div>
+    </div>
+  </section>
+
   <section id="tab-settings" hidden>
     <h1 class="page">核算参数</h1>
     <div class="hint">管销、不良、损耗、预涨沿用原来报价表的设定，所有款式共用。</div>
@@ -385,6 +427,14 @@ h1.page{font-size:20px;margin:20px 0 4px}
         <label>40HQ 可装体积 立方英尺<input data-s="containerCuft" class="n" type="number" step="any"></label>
         <label>报价有效期（天）<input data-s="validDays" class="n" type="number" step="1"></label>
       </div>
+      <div class="label" style="margin-top:16px">价格区间：每项成本往下、往上可能差多少（%）</div>
+      <div class="tbl-wrap"><table><thead><tr><th>成本项</th><th>往下 %</th><th>往上 %</th></tr></thead><tbody id="tBands"></tbody></table></div>
+      <div class="form-grid" style="margin-top:10px">
+        <label>漏项（只加在高的一端）%<input class="n" type="number" step="any" data-band="miss"></label>
+        <label>用料已拆细的款式，区间按几成算 %<input class="n" type="number" step="any" data-band="detailScale"></label>
+        <label>最低可接受毛利率 %<input class="n" type="number" step="any" data-band="minMargin" data-pct="1"></label>
+      </div>
+      <div class="hint">这些起步数字是研究里的假设，以后用报价记录里的实际成本来调整。各项合起来按"平方和开根号"算，不是简单相加。</div>
       <div class="actions"><button class="btn primary" id="saveSettings" type="button" disabled>保存参数</button><span id="setDirty" class="pill" hidden>有未保存的修改</span></div>
     </div>
     <div class="card" style="margin-top:12px">
@@ -400,6 +450,7 @@ h1.page{font-size:20px;margin:20px 0 4px}
         <li>② FOB 运费 = 每箱材积 × 运费单价 × 汇率 ÷ 每箱件数</li>
         <li>③ 人民币报价 = (① + ②) ÷ (1 − 毛利率)；利润 = 报价 − (① + ②)</li>
         <li>④ 美金报价 = 人民币报价 ÷ 汇率</li>
+        <li>价格区间：每项成本 × 它的浮动比例，各项"平方和开根号"合起来；钢材单价对所有钢管只算一次；快速估价在高的一端另加漏项。最低可接受价 = 成本合计 ÷ (1 − 最低毛利率)</li>
       </ol>
     </div>
     <div class="card" style="margin-top:12px">
@@ -478,6 +529,16 @@ function compute(m,mats,fins,s,cat){
  r.loadPcs=r.cuft>0?Math.floor(n(s.containerCuft)/r.cuft)*pcs:0;
  return r}
 
+/* ---------- 常用管材规格（工厂规格表） ---------- */
+const SPECS={
+ 1:[[10,.5,1],[9.3,.5,1],[9.5,.5,1],[11,.5,1.2],[11.5,.5,1.2],[12,.5,1.2],[12.7,.5,1.5],[13,.5,1.5],[14,.5,1.5],[15,.5,1.5],[15.5,.5,1.5],[15.9,.5,1.5],[17.2,.5,1.5],[18,.5,1.5],[18.5,.5,1.5],[19.1,.5,2],[20,.5,1.5],[21.6,.6,2],[21.8,.5,1.5],[22.2,.5,2],[24.7,.5,1.5],[25,.5,2],[25.4,.5,2],[26.5,.5,2],[28,.5,2],[28.6,.6,2],[30,.6,2],[31.3,.6,2],[31.6,.6,2],[31.8,.6,2],[32.8,.7,2],[35,.7,2],[36.9,.7,2],[37.3,.7,2],[37.5,.7,2],[38.1,.7,2],[39.8,.8,2],[42,.8,2],[44.5,.8,2],[45,.8,2],[47.7,.8,2],[50,.8,2],[50.8,.8,2],[70,1,2],[76.2,1,2]].map(([d,lo,hi])=>({a:'',b:d,lo,hi,label:'Φ'+d})).sort((x,y)=>x.b-y.b),
+ 2:[[8,8,.5,1],[10,10,.5,1],[12,12,.5,1.2],[12.7,12.7,.5,1.2],[13,13,.5,1.2],[14,14,.5,1.2],[15,15,.5,1.2],[16,16,.5,1.5],[17.5,17.5,.5,1.5],[18,18,.5,1.5],[19.1,19.1,.5,2],[20,20,.5,2],[22.2,22.2,.6,2],[25,25,.6,2],[25.4,25.4,.6,2],[30,30,.7,2],[32,32,.7,2],[38,38,.7,2],[40,40,.7,2],[45,45,.8,2],[50,50,.8,2],[10,20,.5,1.5],[13,23,.5,1.5],[14,20,.5,1.5],[13,26,.5,2],[15,25,.5,2],[15,30,.6,2],[14,34,.6,2],[13,38,.6,2],[15,35,.6,2],[20,30,.6,2],[15,40,.7,2],[20,40,.7,2],[20,60,.7,2],[25.4,50.8,.7,2],[25,50,.7,2],[30,60,.8,2]].map(([a,b,lo,hi])=>({a,b,lo,hi,label:'□'+a+'/'+b}))
+};
+function specOf(l){const L=SPECS[+l.t];if(!L)return null;return L.find(x=>+l.t===1?n(x.b)===n(l.b):(n(x.a)===n(l.a)&&n(x.b)===n(l.b))||(n(x.a)===n(l.b)&&n(x.b)===n(l.a)))||null}
+function specCell(k,i,l){const L=SPECS[+l.t];if(!L)return '<td class="hint">—</td>';const cur=specOf(l);
+  return `<td><select class="w-s" data-spec="${k}" data-i="${i}"><option value="">${cur?'':'（自填）'}</option>${L.map((x,j)=>`<option value="${j}"${x===cur?' selected':''}>${x.label}</option>`).join('')}</select></td>`}
+function thWarn(l){const sp=specOf(l);if(!sp||l.th===''||l.th==null)return '';const t=n(l.th);return (t<sp.lo||t>sp.hi)?`<span class="warn" title="这个规格的壁厚范围是 ${sp.lo}–${sp.hi}">⚠ ${sp.lo}–${sp.hi}</span>`:''}
+
 /* ---------- state ---------- */
 const S={db:null,mats:{},fins:{},models:{},settings:null,cur:null,work:null,dirty:false,
   cat:{materials:{},finishes:{},fabrics:{},foams:{},boards:{}},cw:null,cdel:{},pricesDirty:false,setWork:null,setDirty:false,profitOverride:null,canWrite:true};
@@ -492,7 +553,7 @@ function effSettings(){const s=Object.assign({},S.settings||{});if(S.profitOverr
 /* ---------- tabs ---------- */
 document.querySelectorAll('nav.tabs button').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('nav.tabs button').forEach(x=>x.setAttribute('aria-pressed',x===b?'true':'false'));
-  ['quote','prices','settings'].forEach(k=>$('tab-'+k).hidden=k!==b.dataset.tab);
+  ['quote','prices','records','settings'].forEach(k=>$('tab-'+k).hidden=k!==b.dataset.tab);if(b.dataset.tab==='records')renderRecords();
 }));
 
 /* ---------- model selection ---------- */
@@ -522,15 +583,33 @@ $('leaveCancel').addEventListener('click',closeLeave);
 window.addEventListener('beforeunload',e=>{if(anyDirty()){e.preventDefault();e.returnValue=''}});
 function setDirty(v){S.dirty=v;$('dirty').hidden=!v;$('saveBtn').disabled=!v||!S.canWrite;$('resetBtn').disabled=!v}
 
+/* ---------- 价格区间 ---------- */
+const BAND_DEF={steelLen:[10,15],steelPrice:[12,12],finish:[5,10],labor:[10,20],soft:[10,20],outer:[5,10],hw:[5,10],pack:[5,15],freight:[10,10],miss:4,detailScale:50,minMargin:0.10};
+const BAND_LAB={steelLen:'钢管长度/规格',steelPrice:'钢材单价',finish:'电镀/表面处理',labor:'人工',soft:'软包（面料海绵木板）',outer:'外配件',hw:'五金',pack:'包材纸箱',freight:'FOB 运费'};
+function bands(s){return Object.assign({},BAND_DEF,s.bands||{})}
+function priceRange(m,r,s){
+  const B=bands(s),f=m.est?1:n(B.detailScale)/100,k=1+n(s.mgmt),pct=v=>n(v)/100*f;
+  const items=[['steelLen',r.metal*k],['steelPrice',r.metal*k],['finish',(r.areaFin+r.kgFin)*k],['labor',r.labor*k],['soft',r.soft],['outer',r.outer],['hw',r.hw*k],['pack',(r.pack+r.carton)*k],['freight',r.freight]];
+  let lo2=0,hi2=0;const share=[];
+  for(const [key,c] of items){const b=B[key]||[0,0],l=c*pct(b[0]),h=c*pct(b[1]);lo2+=l*l;hi2+=h*h;share.push([BAND_LAB[key],h*h])}
+  const lo=Math.sqrt(lo2),hi=Math.sqrt(hi2)+(m.est?r.cost*n(B.miss)/100:0);
+  const cLo=Math.max(0,r.cost-lo),cHi=r.cost+hi,mg=r.margin,fx=n(s.fx)||1;
+  const tot=share.reduce((a,x)=>a+x[1],0)||1;share.sort((a,b)=>b[1]-a[1]);
+  const minM=Math.min(n(B.minMargin),0.95);
+  return {cLo,cHi,pLo:cLo/(1-mg),pHi:cHi/(1-mg),uLo:cLo/(1-mg)/fx,uHi:cHi/(1-mg)/fx,floor:r.cost/(1-minM),floorUsd:r.cost/(1-minM)/fx,minM,
+    top:share.slice(0,2).map(([k,v])=>`${k} ${Math.round(v/tot*100)}%`),narrow:!m.est};
+}
+
 /* ---------- render quote ---------- */
 function opts(obj,sel,allowNone){return (allowNone?`<option value="">（无）</option>`:'')+sortByOrder(obj).map(([id,o])=>`<option value="${esc(id)}"${id===sel?' selected':''}>${esc(o.name)}</option>`).join('')}
 function renderTables(){
   const w=S.work;
   $('tMetal').innerHTML=(w.metal||[]).map((l,i)=>`<tr>
     <td><select data-k="metal" data-i="${i}" data-p="t" class="w-s">${Object.entries(TYPES).map(([k,v])=>`<option value="${k}"${+l.t===+k?' selected':''}>${v}</option>`).join('')}</select></td>
+    ${specCell('metal',i,l)}
     <td><input class="n w-xs" type="number" step="any" data-k="metal" data-i="${i}" data-p="a" value="${esc(l.a??'')}"></td>
     <td><input class="n w-xs" type="number" step="any" data-k="metal" data-i="${i}" data-p="b" value="${esc(l.b??'')}"></td>
-    <td><input class="n w-xs" type="number" step="any" data-k="metal" data-i="${i}" data-p="th" value="${esc(l.th??'')}"></td>
+    <td><input class="n w-xs" type="number" step="any" data-k="metal" data-i="${i}" data-p="th" value="${esc(l.th??'')}"><span id="mtw${i}">${thWarn(l)}</span></td>
     <td><input class="n w-s" type="number" step="any" data-k="metal" data-i="${i}" data-p="len" value="${esc(l.len??'')}"></td>
     <td><input class="n w-xs" type="number" step="any" data-k="metal" data-i="${i}" data-p="qty" value="${esc(l.qty??'')}"></td>
     <td><select data-k="metal" data-i="${i}" data-p="mat" class="w-l">${opts(S.mats,l.mat,true)}</select></td>
@@ -540,9 +619,10 @@ function renderTables(){
     <td><button class="x" type="button" data-del="metal" data-i="${i}" aria-label="删除这一行">×</button></td></tr>`).join('');
   $('tEst').innerHTML=(w.metalEst||[]).map((l,i)=>`<tr>
     <td><select data-k="metalEst" data-i="${i}" data-p="t" class="w-s">${Object.entries(TYPES).map(([k,v])=>`<option value="${k}"${+l.t===+k?' selected':''}>${v}</option>`).join('')}</select></td>
+    ${specCell('metalEst',i,l)}
     <td><input class="n w-xs" type="number" step="any" data-k="metalEst" data-i="${i}" data-p="a" value="${esc(l.a??'')}"></td>
     <td><input class="n w-xs" type="number" step="any" data-k="metalEst" data-i="${i}" data-p="b" value="${esc(l.b??'')}"></td>
-    <td><input class="n w-xs" type="number" step="any" data-k="metalEst" data-i="${i}" data-p="th" value="${esc(l.th??'')}"></td>
+    <td><input class="n w-xs" type="number" step="any" data-k="metalEst" data-i="${i}" data-p="th" value="${esc(l.th??'')}"><span id="etw${i}">${thWarn(l)}</span></td>
     <td><input class="n w-xs" type="number" step="any" data-k="metalEst" data-i="${i}" data-p="meters" value="${esc(l.meters??'')}"></td>
     <td><select data-k="metalEst" data-i="${i}" data-p="mat" class="w-l">${opts(S.mats,l.mat,true)}</select></td>
     <td><select data-k="metalEst" data-i="${i}" data-p="fin" class="w-m">${opts(S.fins,l.fin,true)}</select></td>
@@ -644,31 +724,103 @@ function recalc(){
   $('cartonHint').textContent=`每箱纸箱 ¥${fmt(r.cartonPerCtn)}，每箱材积 ${fmt(r.cuft,2)} 立方英尺；按每箱 ${r.pcs} 件分摊。`;
   $('packHint').textContent=`合计 ¥${fmt(r.packRaw)}，加预涨 ${fmt(n(s.packRise)*100,0)}% 后 ¥${fmt(r.pack)}。`;
   $('outerHint').textContent=`合计 ¥${fmt(r.outerRaw)}，加损耗 ${fmt(n(s.outerLoss)*100,0)}% 后 ¥${fmt(r.outer)}。`;
+  const R=priceRange(w,r,s);S.lastR=r;S.lastRange=R;
+  $('rangeLabel').textContent=w.est?'价格区间（按图估价）':'价格区间（用料已拆细，区间缩小）';
+  $('rCost').textContent=`¥${fmt(R.cLo)} – ¥${fmt(R.cHi)}`;
+  $('rUsd').textContent=`$${fmt(R.uLo)} – $${fmt(R.uHi)}`;
+  $('rFloor').textContent=`¥${fmt(R.floor)}（$${fmt(R.floorUsd)}，毛利 ${fmt(R.minM*100,0)}%）`;
+  $('rHint').textContent=`区间主要来自：${R.top.join('、')}。高低两端都按毛利率 ${fmt(r.margin*100,1)}% 算${w.est?'，高的一端另加漏项':''}。浮动比例在「参数」页改。`+(r.margin<R.minM?` ⚠ 现在的毛利率 ${fmt(r.margin*100,1)}% 低于最低可接受毛利率 ${fmt(R.minM*100,0)}%，所以最低可接受价比报价还高。`:'');
   const name=w.nameEn||w.name||'';
   const lines=[`Item: ${w.code||''}${name?' '+name:''}${w.variant?' ('+w.variant+')':''}`,
     w.size?`Size: ${w.size} mm`:null,
     `Packing: ${r.pcs} pc${r.pcs>1?'s':''}/ctn, ${fmt(r.cuft,2)} cuft/ctn`,
     r.loadPcs?`40'HQ loading: approx. ${r.loadPcs} pcs`:null,
     w.std==='UK'?'Upholstery: UK fire-retardant fabric and foam':null,
-    `Price: USD ${fmt(r.usd)}/pc FOB ${port==='香港'?'Hong Kong':'Yantian'}`,
+    w.est?`Indicative price: USD ${fmt(R.uLo)} - ${fmt(R.uHi)}/pc FOB ${port==='香港'?'Hong Kong':'Yantian'}`:`Price: USD ${fmt(r.usd)}/pc FOB ${port==='香港'?'Hong Kong':'Yantian'}`,
+    w.est?'Based on photo only; firm price confirmed after drawing/sample.':null,
     `Validity: ${n(s.validDays)||30} days`];
   $('custText').textContent=lines.filter(Boolean).join('\n');
   if(document.activeElement!==$('profitQuick'))$('profitQuick').value=+(r.margin*100).toFixed(2);
 }
-function renderAll(){renderModelSel();if(!S.work){$('quoteBody').hidden=true;return}$('quoteBody').hidden=false;renderTables();renderSwapSelects();recalc()}
+function renderAll(){renderModelSel();if(!S.work){$('quoteBody').hidden=true;return}$('quoteBody').hidden=false;renderTpl();renderTables();renderSwapSelects();recalc()}
+
+/* ---------- 椅型模板（公式是推算的，待用老款核对） ---------- */
+const TPL_TEXT=new Set(['type','ring','mat','fin','fab','foamSeat','foamBack']);
+const TPL_NAMES={dining4:'四脚餐椅',sled:'弓形餐椅',bar4:'四脚吧凳（带脚踏圈）'};
+function tplDefaults(type){
+  const mat=S.mats.iron?'iron':(Object.keys(S.mats)[0]||''),fin=S.fins.chrome?'chrome':'';
+  const fab=Object.keys(S.cat.fabrics)[0]||'',foam=S.cat.foams.f30?'f30':(Object.keys(S.cat.foams)[0]||'');
+  const base={type,mat,fin,fab,foamSeat:foam,foamBack:foam,cushion:50,seatFoamT:50,backFoamT:30,th:1.2,legT:1,legA:'',legB:25,frameT:2,frameA:20,frameB:20,waste:20};
+  if(type==='bar4')return Object.assign(base,{SH:750,SW:400,SD:380,H:1000,back:true,stretch:0,ring:'square',ringB:19.1});
+  return Object.assign(base,{SH:460,SW:430,SD:430,H:880,back:true,stretch:2});
+}
+function tplBuild(t){
+  const sc=1.05,c=n(t.cushion),SH=n(t.SH),SW=n(t.SW),SD=n(t.SD),H=n(t.H),k=Math.max(0,n(t.stretch));
+  const leg={t:+t.legT||1,a:t.legA,b:t.legB,th:t.th},frame={t:+t.frameT||2,a:t.frameA,b:t.frameB,th:t.th};
+  const rows=[],add=(spec,mm,piece,note)=>{if(mm>0)rows.push(Object.assign({},spec,{meters:+(mm*sc/1000).toFixed(2),mat:t.mat,fin:t.fin,long:piece>1000,note}))};
+  if(t.type==='dining4'){
+    add(leg,2*(SH-c),SH-c,'前腿×2');
+    add(leg,2*(H-c)*1.05,(H-c)*1.05,'后腿×2（通到靠背）');
+    add(frame,2*(SW+SD),Math.max(SW,SD),'座框一圈');
+    if(k)add(frame,k*(SW+SD)/2,Math.max(SW,SD),`横撑×${k}`);
+    add(frame,2*SW,SW,'靠背横杆×2');
+  }else if(t.type==='sled'){
+    const side=((SD+50)+(SH-c)+(H-c)*1.05)*1.08;
+    add(leg,2*side,side,'弓形侧管×2（含折弯）');
+    add(frame,2*(SW+SD),Math.max(SW,SD),'座框一圈');
+    if(k)add(frame,k*SW,SW,`横杆×${k}`);
+    add(frame,2*SW,SW,'靠背横杆×2');
+  }else if(t.type==='bar4'){
+    add(leg,4*(SH-c)*1.01,(SH-c)*1.01,'腿×4（外撇）');
+    const ring=t.ring==='round'?Math.PI*SW:4*SW;
+    add({t:1,a:'',b:t.ringB||19.1,th:t.th},ring,ring,`脚踏圈（${t.ring==='round'?'圆':'方'}，离地约 ${Math.max(0,SH-420)}mm）`);
+    add(frame,2*(SW+SD),Math.max(SW,SD),'座框一圈');
+    if(k)add(frame,k*SW,SW,`横撑×${k}`);
+    if(t.back){add(frame,2*(H-SH),H-SH,'靠背立柱×2');add(frame,SW,SW,'靠背横杆')}
+  }
+  const foam=[{foam:t.foamSeat,L:SW,W:SD,H:n(t.seatFoamT),qty:1,note:'座垫'}];
+  const backH=t.back?Math.round((H-SH)*0.5):0;
+  if(backH>0)foam.push({foam:t.foamBack,L:SW,W:backH,H:n(t.backFoamT),qty:1,note:'靠背'});
+  const allow=60,panel=(w,d,th)=>(w+2*(th+allow))*(d+2*(th+allow));
+  let area=panel(SW,SD,n(t.seatFoamT));if(backH>0)area+=panel(SW,backH,n(t.backFoamT));
+  const lenM=area/1370/1000*(1+n(t.waste)/100),f=S.cat.fabrics[t.fab];
+  const qty=+(f&&f.unit==='米'?lenM:lenM/YARD).toFixed(2);
+  return {metalEst:rows,foam,fabric:[{fab:t.fab,qty,note:'按面积估（布宽 137cm，含损耗）'}]};
+}
+function specSel(prefix,t){const T=+t[prefix+'T']||1,L=SPECS[T]||[];const cur=L.findIndex(x=>T===1?n(x.b)===n(t[prefix+'B']):n(x.a)===n(t[prefix+'A'])&&n(x.b)===n(t[prefix+'B']));
+  return `<select data-tplspec="${prefix}">${[1,2].map(tt=>SPECS[tt].map((x,j)=>`<option value="${tt}:${j}"${tt===T&&j===cur?' selected':''}>${tt===1?'圆管':'方管'} ${x.label}</option>`).join('')).join('')}</select>`}
+function renderTpl(){const w=S.work,t=w.tpl,sec=$('tplSec');if(!t){sec.hidden=true;return}sec.hidden=false;
+  $('tplTitle').textContent='椅型模板：'+(TPL_NAMES[t.type]||'');
+  const num=(p,lab)=>`<label>${lab}<input class="n" type="number" step="any" data-tpl="${p}" value="${esc(t[p]??'')}"></label>`;
+  const sel=(p,lab,obj,none)=>`<label>${lab}<select data-tpl="${p}">${none?'<option value="">（无）</option>':''}${sortByOrder(obj).map(([id,o])=>`<option value="${esc(id)}"${id===t[p]?' selected':''}>${esc(o.name)}</option>`).join('')}</select></label>`;
+  $('tplForm').innerHTML=[num('SH','座高 mm'),num('SW','座宽 mm'),num('SD','座深 mm'),num('H','总高 mm'),num('cushion','坐垫厚 mm'),
+    `<label>腿管规格${specSel('leg',t)}</label>`,`<label>框架管规格${specSel('frame',t)}</label>`,num('th','壁厚 mm'),
+    num('stretch',t.type==='sled'?'横杆几根':'横撑几根'),
+    t.type==='bar4'?`<label>脚踏圈<select data-tpl="ring"><option value="square"${t.ring!=='round'?' selected':''}>方圈</option><option value="round"${t.ring==='round'?' selected':''}>圆圈</option></select></label>`:'',
+    t.type==='bar4'?`<label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" data-tpl="back"${t.back?' checked':''}> 有靠背</label>`:'',
+    sel('mat','管子材料',S.mats),sel('fin','表面处理',S.fins,true),sel('fab','面料',S.cat.fabrics),
+    sel('foamSeat','座垫海绵',S.cat.foams),num('seatFoamT','座垫海绵厚 mm'),sel('foamBack','靠背海绵',S.cat.foams),num('backFoamT','靠背海绵厚 mm'),num('waste','面料损耗 %')].join('')}
 
 /* ---------- editing ---------- */
 const NUMP=new Set(['t','a','b','th','len','qty','rate','price','amount','pcsPerCtn','L','W','H','type','unitPrice','meters']);
 document.addEventListener('input',e=>{
   const el=e.target;if(!S.work)return;
   if(el.id==='estChk'){S.work.est=el.checked;setDirty(true);renderAll();return}
+  if(el.dataset.spec){const row=S.work[el.dataset.spec][+el.dataset.i],sp=(SPECS[+row.t]||[])[+el.value];if(!sp)return;
+    row.a=sp.a;row.b=sp.b;if(row.th===''||row.th==null||n(row.th)<sp.lo||n(row.th)>sp.hi)row.th=Math.min(Math.max(1.2,sp.lo),sp.hi);setDirty(true);renderTables();recalc();return}
+  if(el.dataset.tpl){S.work.tpl=S.work.tpl||{};const p=el.dataset.tpl;S.work.tpl[p]=el.type==='checkbox'?el.checked:TPL_TEXT.has(p)?el.value:(el.value===''?'':n(el.value));setDirty(true);return}
   if(el.dataset.k){const row=S.work[el.dataset.k][+el.dataset.i],p=el.dataset.p;row[p]=el.type==='checkbox'?el.checked:NUMP.has(p)?(el.value===''?'':n(el.value)):el.value;
-    if(p==='fin'&&!el.value)delete row.fin;setDirty(true);recalc();if(p==='mat'||p==='fin')renderSwapSelects();return}
+    if(p==='fin'&&!el.value)delete row.fin;setDirty(true);
+    if(p==='t'&&(el.dataset.k==='metal'||el.dataset.k==='metalEst')){renderTables();recalc();return}
+    if(['a','b','th'].includes(p)&&(el.dataset.k==='metal'||el.dataset.k==='metalEst')){const w=$((el.dataset.k==='metal'?'mtw':'etw')+el.dataset.i);if(w)w.innerHTML=thWarn(row)}
+    recalc();if(p==='mat'||p==='fin')renderSwapSelects();return}
   if(el.dataset.f==='std'){S.work.std=el.value;setDirty(true);recalc();return}
   if(el.dataset.f){const p=el.dataset.f;S.work[p]=NUMP.has(p)?n(el.value):el.value;setDirty(true);recalc();return}
   if(el.dataset.c){S.work.carton=S.work.carton||{};const p=el.dataset.c;S.work.carton[p]=NUMP.has(p)?n(el.value):el.value;setDirty(true);recalc();return}
 });
-document.addEventListener('change',e=>{const el=e.target;if(el.tagName==='SELECT'&&(el.dataset.k||el.dataset.f||el.dataset.c)&&!el.closest('#tab-prices'))el.dispatchEvent(new Event('input',{bubbles:true}))});
+document.addEventListener('change',e=>{const el0=e.target;if(el0.dataset.tplspec&&S.work&&S.work.tpl){const [tt,j]=el0.value.split(':').map(Number),sp=SPECS[tt][j],p=el0.dataset.tplspec;
+  S.work.tpl[p+'T']=tt;S.work.tpl[p+'A']=sp.a;S.work.tpl[p+'B']=sp.b;setDirty(true);return}});
+document.addEventListener('change',e=>{const el=e.target;if(el.tagName==='SELECT'&&(el.dataset.k||el.dataset.f||el.dataset.c||el.dataset.spec||el.dataset.tpl)&&!el.closest('#tab-prices'))el.dispatchEvent(new Event('input',{bubbles:true}))});
 $('profitQuick').addEventListener('input',e=>{S.profitOverride=e.target.value===''?null:n(e.target.value)/100;recalc()});
 document.addEventListener('click',e=>{
   const el=e.target.closest('button');if(!el||!S.work)return;
@@ -689,7 +841,7 @@ $('resetBtn').addEventListener('click',()=>{if(S.cur)loadModel(S.cur)});
 async function writeDoc(path,data){const [collection,id]=path.split('/');
   let error;try{({error}=await S.db.from('docs').upsert({collection,id,data,updated_at:new Date().toISOString()}))}catch(e){error=e}
   if(error){toast('保存失败：'+explainErr(error));return false}
-  const map=collection==='models'?S.models:S.cat[collection];
+  const map=collection==='models'?S.models:collection==='quotes'?S.quotes:S.cat[collection];
   if(collection==='settings')S.settings=Object.assign({},data);else if(map)map[id]=JSON.parse(JSON.stringify(data));
   return true}
 async function deleteDoc(path){const [collection,id]=path.split('/');
@@ -705,12 +857,16 @@ $('estBtn').addEventListener('click',()=>{const ids=Object.keys(S.models).sort((
   $('estRef').innerHTML=ids.map(id=>`<option value="${esc(id)}"${id===S.cur?' selected':''}>${esc(modelLabel(S.models[id]))}</option>`).join('');
   $('estCode').value='';$('estName').value='';$('estForm').hidden=false;$('estCode').focus()});
 $('estCancel').addEventListener('click',()=>$('estForm').hidden=true);
+function applyTpl(){if(!S.work||!S.work.tpl)return;const g=tplBuild(S.work.tpl);S.work.metalEst=g.metalEst;S.work.foam=g.foam;S.work.fabric=g.fabric;setDirty(true);renderAll()}
+$('tplGo').addEventListener('click',()=>{applyTpl();toast('已按尺寸算出用料，请检查每一行')});
 $('estOk').addEventListener('click',async()=>{if(!S.db)return;const code=$('estCode').value.trim();if(!code){toast('请填写型号');return}
   const ref=S.models[$('estRef').value];if(!ref){toast('请选一个参考老款');return}
   const go=async()=>{const d={code,name:$('estName').value.trim(),nameEn:'',variant:'快速估价',size:'',est:true,std:'US',port:ref.port||'YT',
     pcsPerCtn:ref.pcsPerCtn,carton:clone(ref.carton||{}),labor:clone(ref.labor||[]),hardware:clone(ref.hardware||[]),packaging:clone(ref.packaging||[]),
     metal:[],metalEst:[{t:2,a:'',b:'',th:'',meters:'',mat:Object.keys(S.mats)[0]||'',fin:'',long:false,note:''}],outer:[],fabric:[],foam:[],board:[],
+    tpl:$('estType').value?tplDefaults($('estType').value):undefined,
     notes:`快速估价，参考 ${modelLabel(ref)}`,updated:new Date().toISOString().slice(0,10)};
+    if(d.tpl){const g=tplBuild(d.tpl);d.metalEst=g.metalEst;d.foam=g.foam;d.fabric=g.fabric;d.notes+='，椅型：'+TPL_NAMES[d.tpl.type]}else delete d.tpl;
     const id=('est-'+code+'-'+Date.now().toString(36)).replace(/[^A-Za-z0-9_\-.~:@+]/g,'');
     if(await writeDoc('models/'+id,d)){$('estForm').hidden=true;S.cur=id;S.work=clone(d);setDirty(false);S.profitOverride=null;renderAll();toast('已新建快速估价，请填铁管和软包')}};
   if(!S.dirty){go();return}
@@ -764,9 +920,49 @@ async function savePricesAll(){if(!S.db)return false;const today=new Date().toIS
   S.cdel={};if(ok){setPricesDirty(false);renderPrices();if(S.work){renderTables();renderSwapSelects();recalc()}toast('价格表已保存，所有款式已按新价格计算')}return ok}
 $('savePrices').addEventListener('click',savePricesAll);
 
+/* ---------- 报价记录 ---------- */
+S.quotes={};
+$('recBtn').addEventListener('click',()=>{if(!S.work||!S.lastRange)return;$('recClient').value='';$('recNote').value='';
+  $('recUsd').value=+((S.lastRange.uLo+S.lastRange.uHi)/2).toFixed(2);$('recForm').hidden=false;$('recClient').focus()});
+$('recCancel').addEventListener('click',()=>$('recForm').hidden=true);
+$('recOk').addEventListener('click',async()=>{const r=S.lastR,R=S.lastRange,w=S.work,s=effSettings();if(!r||!R)return;
+  const d={date:new Date().toISOString().slice(0,10),client:$('recClient').value.trim(),model:S.cur,label:modelLabel(w),est:!!w.est,
+    cost:+r.cost.toFixed(2),costLo:+R.cLo.toFixed(2),costHi:+R.cHi.toFixed(2),usdLo:+R.uLo.toFixed(2),usdHi:+R.uHi.toFixed(2),
+    usd:$('recUsd').value===''?null:n($('recUsd').value),margin:r.margin,fx:n(s.fx),status:'待定',actual:'',note:$('recNote').value.trim()};
+  const id='q'+Date.now().toString(36);
+  if(await writeDoc('quotes/'+id,d)){$('recForm').hidden=true;toast(S.dirty?'已记录（款式本身还没保存，记得点保存）':'已记录这次报价')}});
+function recStats(){const L=Object.values(S.quotes);const done=L.filter(q=>q.status!=='待定');const won=L.filter(q=>q.status==='成交');
+  const act=L.filter(q=>n(q.actual)>0&&n(q.cost)>0),ratios=act.map(q=>n(q.actual)/n(q.cost)).sort((a,b)=>a-b);
+  const med=ratios.length?ratios[Math.floor((ratios.length-1)/2)]:null,hit=act.filter(q=>n(q.actual)>=n(q.costLo)&&n(q.actual)<=n(q.costHi)).length;
+  return [['记录了几次报价',L.length],['成交率',done.length?Math.round(won.length/done.length*100)+'%':'—'],
+    ['实际 ÷ 估算（中位数）',med?fmt(med,2)+(med>1?'（估低了）':med<1?'（估高了）':''):'还没有实际成本'],['实际成本落在区间里',act.length?`${hit}/${act.length}`:'—']]}
+function renderRecords(){const L=Object.entries(S.quotes).sort((a,b)=>String(b[1].date).localeCompare(String(a[1].date))||b[0].localeCompare(a[0]));
+  $('recStats').innerHTML=recStats().map(([k,v])=>`<div><span class="label">${k}</span><b>${esc(v)}</b></div>`).join('');
+  $('tRec').innerHTML=L.map(([id,q])=>`<tr>
+    <td class="n">${esc(q.date)}</td><td>${esc(q.client)}</td><td>${esc(q.label)}</td><td>${q.est?'按图估':'已拆细'}</td>
+    <td class="n">¥${fmt(q.cost)}</td><td class="n">${fmt(q.usdLo)}–${fmt(q.usdHi)}</td><td class="n">${q.usd==null?'':fmt(q.usd)}</td>
+    <td><select data-rec="${id}" data-p="status">${['待定','成交','没成交'].map(v=>`<option${v===q.status?' selected':''}>${v}</option>`).join('')}</select></td>
+    <td><input class="n w-s" type="number" step="any" data-rec="${id}" data-p="actual" value="${esc(q.actual??'')}"></td>
+    <td><input class="w-m" data-rec="${id}" data-p="note" value="${esc(q.note??'')}"></td>
+    <td><button class="btn" type="button" data-recsave="${id}" disabled>保存</button></td></tr>`).join('')||`<tr><td colspan="11" class="hint">还没有记录。在报价页点「记录这次报价」。</td></tr>`}
+S.recWork={};
+$('tab-records').addEventListener('input',e=>{const el=e.target,id=el.dataset.rec;if(!id)return;
+  const q=S.recWork[id]=S.recWork[id]||clone(S.quotes[id]);q[el.dataset.p]=el.dataset.p==='actual'?(el.value===''?'':n(el.value)):el.value;
+  const b=document.querySelector(`[data-recsave="${id}"]`);if(b)b.disabled=false});
+$('tab-records').addEventListener('change',e=>{if(e.target.dataset.rec&&e.target.tagName==='SELECT')e.target.dispatchEvent(new Event('input',{bubbles:true}))});
+$('tab-records').addEventListener('click',async e=>{const b=e.target.closest('[data-recsave]');if(!b)return;const id=b.dataset.recsave;
+  if(await writeDoc('quotes/'+id,S.recWork[id])){delete S.recWork[id];renderRecords();toast('已保存')}});
+
 /* ---------- settings tab ---------- */
 function renderSettings(){if(!S.settings)return;if(!S.setDirty){S.setWork=clone(S.settings);if(S.setWork.frYard==null)S.setWork.frYard=12}
-  document.querySelectorAll('[data-s]').forEach(el=>{const v=S.setWork[el.dataset.s];el.value=el.dataset.pct?+(n(v)*100).toFixed(4):(v??'')})}
+  document.querySelectorAll('[data-s]').forEach(el=>{const v=S.setWork[el.dataset.s];el.value=el.dataset.pct?+(n(v)*100).toFixed(4):(v??'')});
+  const B=bands(S.setWork);
+  $('tBands').innerHTML=Object.keys(BAND_LAB).map(k=>`<tr><td>${BAND_LAB[k]}</td><td><input class="n w-s" type="number" step="any" data-band="${k}" data-side="0" value="${B[k][0]}"></td><td><input class="n w-s" type="number" step="any" data-band="${k}" data-side="1" value="${B[k][1]}"></td></tr>`).join('');
+  document.querySelectorAll('#tab-settings [data-band]:not([data-side])').forEach(el=>{const v=B[el.dataset.band];el.value=el.dataset.pct?+(n(v)*100).toFixed(2):v})}
+$('tab-settings').addEventListener('input',e=>{const el=e.target,k=el.dataset.band;if(!k)return;
+  const B=bands(S.setWork);S.setWork.bands=clone(B);
+  if(el.dataset.side!=null){S.setWork.bands[k][+el.dataset.side]=n(el.value)}else S.setWork.bands[k]=el.dataset.pct?n(el.value)/100:n(el.value);
+  S.setDirty=true;$('setDirty').hidden=false;$('saveSettings').disabled=!S.canWrite});
 $('setForm').addEventListener('input',e=>{const el=e.target;if(!el.dataset.s)return;S.setWork[el.dataset.s]=el.dataset.pct?n(el.value)/100:n(el.value);S.setDirty=true;$('setDirty').hidden=false;$('saveSettings').disabled=!S.canWrite});
 async function saveSettingsAll(){if(await writeDoc('settings/main',S.setWork)){S.setDirty=false;$('setDirty').hidden=true;$('saveSettings').disabled=true;recalc();toast('参数已保存');return true}return false}
 $('saveSettings').addEventListener('click',saveSettingsAll);
@@ -786,9 +982,9 @@ async function loadAll(){
   try{({data,error}=await S.db.from('docs').select('collection,id,data'))}catch(e){error=e}
   if(error){const b=$('dbNotice');b.textContent='读取数据失败：'+explainErr(error);b.hidden=false;return}
   $('dbNotice').hidden=true;
-  const g={settings:{},materials:{},finishes:{},fabrics:{},foams:{},boards:{},models:{}};
+  const g={settings:{},materials:{},finishes:{},fabrics:{},foams:{},boards:{},models:{},quotes:{}};
   for(const r of data||[]){if(g[r.collection])g[r.collection][r.id]=Object.assign({},r.data)}
-  S.settings=g.settings.main||null;S.cat={materials:g.materials,finishes:g.finishes,fabrics:g.fabrics,foams:g.foams,boards:g.boards};S.mats=S.cat.materials;S.fins=S.cat.finishes;S.models=g.models;
+  S.settings=g.settings.main||null;S.cat={materials:g.materials,finishes:g.finishes,fabrics:g.fabrics,foams:g.foams,boards:g.boards};S.mats=S.cat.materials;S.fins=S.cat.finishes;S.models=g.models;S.quotes=g.quotes;
   afterLoad()}
 function afterLoad(){
   if(S.cur&&!S.models[S.cur]){S.cur=null;S.work=null}
