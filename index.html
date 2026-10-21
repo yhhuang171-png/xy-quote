@@ -384,7 +384,7 @@ h1.page{font-size:20px;margin:20px 0 4px}
     </div>
     <div class="card" style="margin-top:12px">
       <div class="label">面料（皮按码，布按米）</div>
-      <div class="tbl-wrap"><table><thead><tr><th>名称</th><th>单位</th><th>单价</th><th>备注</th><th>更新日期</th><th>用到的款式</th><th></th></tr></thead><tbody id="tc-fabrics"></tbody></table></div>
+      <div class="tbl-wrap"><table><thead><tr><th>名称</th><th>单位</th><th>单价</th><th title="英标防火面料本身已含防火，切到英标时不再加防火费">已防火</th><th>备注</th><th>更新日期</th><th>用到的款式</th><th></th></tr></thead><tbody id="tc-fabrics"></tbody></table></div>
       <button class="btn addrow" type="button" data-addcat="fabrics">＋ 新面料</button>
     </div>
     <div class="card" style="margin-top:12px">
@@ -488,7 +488,7 @@ function softLines(m,cat,s){
  const uk=m.std==='UK',out={fabric:[],foam:[],board:[],total:0};
  const fabs=(cat&&cat.fabrics)||{},foams=(cat&&cat.foams)||{},boards=(cat&&cat.boards)||{};
  for(const l of m.fabric||[]){const f=fabs[l.fab];let unit=f?(f.unit||'码'):'',base=f?n(f.price):0,fr=0;
-  if(uk&&f)fr=unit==='米'?n(s.frYard??12)/YARD:n(s.frYard??12);
+  if(uk&&f&&!f.fr)fr=unit==='米'?n(s.frYard??12)/YARD:n(s.frYard??12);
   const c=n(l.qty)*(base+fr);out.fabric.push({unit,base,fr,price:base+fr,c});out.total+=c}
  for(const l of m.foam||[]){let f=foams[l.foam],used=f;if(uk&&f&&f.uk&&foams[f.uk])used=foams[f.uk];
   const vol=n(l.L)*n(l.W)*n(l.H)/1e9*n(l.qty),c=vol*(used?n(used.price):0);
@@ -701,7 +701,7 @@ function recalc(){
   const other=Object.assign({},w,{std:w.std==='UK'?'US':'UK'}),r2=compute(other,S.mats,S.fins,s,S.cat);
   const us=w.std==='UK'?r2:r,uk=w.std==='UK'?r:r2,dUK=uk.productCost-us.productCost,pUK=us.productCost?dUK/us.productCost*100:0;
   $('kStd').textContent=w.std==='UK'?`英标（比美标 +¥${fmt(dUK)}）`:'美标';
-  $('stdHint').textContent=`英标：面料加防火费（每码 ${fmt(n(s.frYard??12))} 元，按米的布每米 ${fmt(n(s.frYard??12)/YARD)} 元），海绵换成对应的英规防火海绵。这一款英标比美标贵 ¥${fmt(dUK)}（产品成本 +${fmt(pUK,1)}%）。外配件里的面料、海绵不会自动换。`;
+  $('stdHint').textContent=`英标：面料加防火费（每码 ${fmt(n(s.frYard??12))} 元，按米的布每米 ${fmt(n(s.frYard??12)/YARD)} 元；价格表里标了「已防火」的面料不再加），海绵换成对应的英规防火海绵。这一款英标比美标贵 ¥${fmt(dUK)}（产品成本 +${fmt(pUK,1)}%）。外配件里的面料、海绵不会自动换。`;
   $('sSoft').textContent=`¥${fmt(r.soft)}（含损耗）· ${w.std==='UK'?'英标':'美标'}`;
   $('softHint').textContent=`合计 ¥${fmt(r.softRaw)}，加损耗 ${fmt(n(s.outerLoss)*100,0)}% 后 ¥${fmt(r.soft)}。`;
   const port=(w.port||s.port)==='HK'?'香港':'盐田';
@@ -886,7 +886,7 @@ const NUMF=new Set(['price','priceLong']);
 const CATS={
   materials:{blank:{name:'新材料',price:0,note:''},dated:true,cols:[['name','text','w-l'],['price','num','w-s'],['note','text','w-l']],uses:(m,id)=>(m.metal||[]).concat(m.metalEst||[]).some(l=>l.mat===id)},
   finishes:{blank:{name:'新表面处理',basis:'area',price:0,priceLong:'',note:''},cols:[['name','text','w-l'],['basis','sel',()=>[['area','元/平方米（按面积）'],['kg','元/公斤（按重量）']]],['price','num','w-s'],['priceLong','num','w-s'],['note','text','w-l']],uses:(m,id)=>(m.metal||[]).concat(m.metalEst||[]).some(l=>l.fin===id)},
-  fabrics:{blank:{name:'新面料',unit:'码',price:0,note:''},dated:true,cols:[['name','text','w-l'],['unit','sel',()=>[['码','码'],['米','米']]],['price','num','w-s'],['note','text','w-l']],uses:(m,id)=>(m.fabric||[]).some(l=>l.fab===id)},
+  fabrics:{blank:{name:'新面料',unit:'码',price:0,fr:'',note:''},dated:true,cols:[['name','text','w-l'],['unit','sel',()=>[['码','码'],['米','米']]],['price','num','w-s'],['fr','sel',()=>[['','否'],['1','已防火']]],['note','text','w-l']],uses:(m,id)=>(m.fabric||[]).some(l=>l.fab===id)},
   foams:{blank:{name:'新海绵',price:0,uk:'',note:''},dated:true,cols:[['name','text','w-l'],['price','num','w-s'],['uk','sel',()=>[['','（不换）']].concat(sortByOrder(S.cw.foams).map(([k,o])=>[k,o.name]))],['note','text','w-l']],uses:(m,id)=>(m.foam||[]).some(l=>l.foam===id)},
   boards:{blank:{name:'新木板',price:0,note:''},dated:true,cols:[['name','text','w-l'],['price','num','w-s'],['note','text','w-l']],uses:(m,id)=>(m.board||[]).some(l=>l.board===id)}
 };
